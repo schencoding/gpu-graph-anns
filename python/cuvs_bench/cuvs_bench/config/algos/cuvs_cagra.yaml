@@ -19,19 +19,19 @@ groups:
     search:
       itopk: [32, 64, 128, 256, 512]
       search_width: [1, 2, 4, 8, 16, 32, 64]
-  profile1:
+  graph_analysis_sift128_k10_bs10000:
     build:
-      graph_degree: [32, 64, 96, 128]
-      intermediate_graph_degree: [32, 64, 96, 128]
+      graph_degree: [32]
+      intermediate_graph_degree: [32]
       graph_build_algo: ["NN_DESCENT"]
     search:
-      itopk: [512]
-      search_width: [64]
-  graph_analysis1:
+      itopk: [64]
+      search_width: [4]
+  graph_analysis_glove100_k10_bs10000:
     build:
       graph_degree: [64]
       intermediate_graph_degree: [64]
       graph_build_algo: ["NN_DESCENT"]
     search:
-      itopk: [512]
-      search_width: [64]
+      itopk: [256]
+      search_width: [1]

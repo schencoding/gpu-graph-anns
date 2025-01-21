@@ -8,10 +8,16 @@ groups:
       efConstruction: [64, 128, 256, 512]
     search:
       ef: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800]
-  # glove-100-inner recall > 0.95
-  graph_analysis1:
+  # recall > 0.95
+  graph_analysis_sift128_k10_bs10000:
+    build:
+      M: [24]
+      efConstruction: [256]
+    search:
+      ef: [40]
+  graph_analysis_glove100_k10_bs10000:
     build:
       M: [24]
       efConstruction: [512]
     search:
-      ef: [400]
+      ef: [400.0]
