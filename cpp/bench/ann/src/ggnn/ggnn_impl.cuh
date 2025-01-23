@@ -43,6 +43,12 @@ class ggnn_impl : public algo<T>, public algo_gpu {
 
   void set_search_dataset(const T* dataset, size_t nrow) override;
 
+  benchmark::UserCounters get_custom_counters() const override {}
+
+  void print_metrics() const override {}
+
+  void reset_metrics() override {}
+
  private:
   using algo<T>::metric_;
   using algo<T>::dim_;
@@ -88,18 +94,16 @@ class ggnn_impl : public algo<T>, public algo_gpu {
   }
 };
 
-extern template class ggnn_impl<float, Euclidean, 128, 24, 10, 32>;
-extern template class ggnn_impl<float, Euclidean, 100, 24, 10, 32>;
-extern template class ggnn_impl<float, Euclidean, 100, 24, 10, 64>;
-extern template class ggnn_impl<float, Euclidean, 100, 48, 10, 32>;
-extern template class ggnn_impl<float, Euclidean, 100, 48, 10, 64>;
-extern template class ggnn_impl<float, Euclidean, 100, 64, 10, 64>;
-extern template class ggnn_impl<float, Euclidean, 100, 96, 10, 64>;
-// sift-128
-extern template class ggnn_impl<float, Euclidean, 128, 24, 10, 32>;
-extern template class ggnn_impl<float, Euclidean, 128, 24, 10, 64>;
-extern template class ggnn_impl<float, Euclidean, 128, 48, 10, 32>;
-extern template class ggnn_impl<float, Euclidean, 128, 48, 10, 64>;
-extern template class ggnn_impl<float, Euclidean, 128, 64, 10, 64>;
-extern template class ggnn_impl<float, Euclidean, 128, 96, 10, 64>;
+#define INSTANTIATE(DIM)                                              \
+  extern template class ggnn_impl<float, Euclidean, DIM, 24, 10, 32>; \
+  extern template class ggnn_impl<float, Euclidean, DIM, 24, 10, 64>; \
+  extern template class ggnn_impl<float, Euclidean, DIM, 48, 10, 32>; \
+  extern template class ggnn_impl<float, Euclidean, DIM, 48, 10, 64>; \
+  extern template class ggnn_impl<float, Euclidean, DIM, 64, 10, 64>; \
+  extern template class ggnn_impl<float, Euclidean, DIM, 96, 10, 64>;
+
+INSTANTIATE(100);
+INSTANTIATE(128);
+INSTANTIATE(960);
+#undef INSTANTIATE
 }  // namespace cuvs::bench

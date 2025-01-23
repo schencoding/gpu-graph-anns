@@ -18,6 +18,7 @@
 
 #include "../../../core/nvtx.hpp"
 #include "factory.cuh"
+#include "graph_analysis_macros.h"
 #include "sample_filter_utils.cuh"
 #include "search_plan.cuh"
 #include "search_single_cta_inst.cuh"
@@ -93,8 +94,12 @@ void search_main_core(raft::resources const& res,
       plan->num_seeds > 0
         ? reinterpret_cast<const IndexT*>(plan->dev_seed.data()) + (plan->num_seeds * qid)
         : nullptr;
+#ifdef _GRAPH_QUALITY_ANALYSIS
+    plan->num_executed_iterations.resize(n_queries);
+    uint32_t* _num_executed_iterations = plan->num_executed_iterations.data();
+#else
     uint32_t* _num_executed_iterations = nullptr;
-
+#endif
     (*plan)(res,
             graph,
             _topk_indices_ptr,

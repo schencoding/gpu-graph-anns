@@ -24,6 +24,7 @@
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk.h"  // TODO replace with raft topk if possible
 #include "utils.hpp"
+#include "graph_analysis_macros.h"
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
@@ -51,8 +52,6 @@
 
 namespace cuvs::neighbors::cagra::detail {
 namespace multi_cta_search {
-
-// #define _CLK_BREAKDOWN
 
 template <class INDEX_T>
 RAFT_DEVICE_INLINE_FUNCTION void pickup_next_parents(
@@ -131,11 +130,17 @@ RAFT_DEVICE_INLINE_FUNCTION void topk_by_bitonic_sort(
   }
 }
 
+// #undef NDEBUG
+
 //
 // multiple CTAs per single query
 //
 template <std::uint32_t MAX_ELEMENTS, class DATASET_DESCRIPTOR_T, class SAMPLE_FILTER_T>
+#ifndef NDEBUG
+RAFT_KERNEL search_kernel(
+#else
 RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
+#endif
   typename DATASET_DESCRIPTOR_T::INDEX_T* const
     result_indices_ptr,  // [num_queries, num_cta_per_query, itopk_size]
   typename DATASET_DESCRIPTOR_T::DISTANCE_T* const
@@ -159,8 +164,7 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
   SAMPLE_FILTER_T sample_filter
 #ifdef _GRAPH_QUALITY_ANALYSIS
   ,
-  uint64_t* graph_metrics_global_distance_calculation_counter1_ptr,
-  uint64_t* graph_metrics_global_distance_calculation_counter2_ptr
+  CagraMetrics* cagra_metrics
 #endif
 )
 {
@@ -182,8 +186,7 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
     local_distance_calculation_counter2 = 0;
   }
   if (threadIdx.x == 0 && cta_id == 0 && query_id == 0) {
-    *graph_metrics_global_distance_calculation_counter1_ptr = 0;
-    *graph_metrics_global_distance_calculation_counter2_ptr = 0;
+    cagra_metrics->reset();
   }
   __syncthreads();
 #endif
@@ -193,7 +196,7 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
   uint64_t clk_compute_1st_distance = 0;
   uint64_t clk_topk                 = 0;
   uint64_t clk_pickup_parents       = 0;
-  uint64_t clk_compute_distance     = 0;
+  // uint64_t clk_compute_distance     = 0;
   uint64_t clk_start;
 #define _CLK_START() clk_start = clock64()
 #define _CLK_REC(V)  V += clock64() - clk_start;
@@ -259,8 +262,7 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
                                            hash_bitlen,
 
 #ifdef _GRAPH_QUALITY_ANALYSIS
-                                           graph_metrics_global_distance_calculation_counter1_ptr,
-                                           graph_metrics_global_distance_calculation_counter2_ptr,
+                                           cagra_metrics,
                                            &local_distance_calculation_counter1,
                                            &local_distance_calculation_counter2,
 #endif
@@ -294,7 +296,7 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
     if (*terminate_flag && iter >= min_iteration) { break; }
 
     // compute the norms between child nodes and query node
-    _CLK_START();
+    // _CLK_START();
     device::compute_distance_to_child_nodes(result_indices_buffer + itopk_size,
                                             result_distances_buffer + itopk_size,
                                             *dataset_desc,
@@ -307,13 +309,12 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
                                             search_width
 #ifdef _GRAPH_QUALITY_ANALYSIS
                                             ,
-                                            graph_metrics_global_distance_calculation_counter1_ptr,
-                                            graph_metrics_global_distance_calculation_counter2_ptr,
+                                            cagra_metrics,
                                             &local_distance_calculation_counter1,
                                             &local_distance_calculation_counter2
 #endif
     );
-    _CLK_REC(clk_compute_distance);
+    // _CLK_REC(clk_compute_distance);
     __syncthreads();
 
     // Filtering
@@ -338,27 +339,27 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
 
     iter++;
 #ifdef _GRAPH_QUALITY_ANALYSIS
-    if (threadIdx.x == 0 && cta_id == 0 && query_id < 10) {
-      for (unsigned _graph_analysis_topk_idx = 0; _graph_analysis_topk_idx < itopk_size;
-           _graph_analysis_topk_idx++) {
-        float result_distance = 0;
-        if constexpr (std::is_same_v<typename DATASET_DESCRIPTOR_T::DISTANCE_T, half>) {
-          result_distance = __half2float(result_distances_buffer[_graph_analysis_topk_idx]);
-        } else {
-          result_distance = static_cast<float>(result_distances_buffer[_graph_analysis_topk_idx]);
-        }
-        printf(
-          "GRAPH: cagra-multi-cta, file: %s, line: %d, query_id: %u, iter: %u, top: %u, idx: %u, "
-          "distance: %f\n",
-          __FILE__,
-          __LINE__,
-          query_id,
-          iter,
-          _graph_analysis_topk_idx + 1,
-          (uint32_t)result_indices_buffer[_graph_analysis_topk_idx],
-          result_distance);
-      }
-    }
+    // if (threadIdx.x == 0 && cta_id == 0 && query_id < 10) {
+    //   for (unsigned _graph_analysis_topk_idx = 0; _graph_analysis_topk_idx < itopk_size;
+    //        _graph_analysis_topk_idx++) {
+    //     float result_distance = 0;
+    //     if constexpr (std::is_same_v<typename DATASET_DESCRIPTOR_T::DISTANCE_T, half>) {
+    //       result_distance = __half2float(result_distances_buffer[_graph_analysis_topk_idx]);
+    //     } else {
+    //       result_distance = static_cast<float>(result_distances_buffer[_graph_analysis_topk_idx]);
+    //     }
+    //     printf(
+    //       "GRAPH: cagra-multi-cta, file: %s, line: %d, query_id: %u, iter: %u, top: %u, idx: %u, "
+    //       "distance: %f\n",
+    //       __FILE__,
+    //       __LINE__,
+    //       query_id,
+    //       iter,
+    //       _graph_analysis_topk_idx + 1,
+    //       (uint32_t)result_indices_buffer[_graph_analysis_topk_idx],
+    //       result_distance);
+    //   }
+    // }
 #endif
   }
 
@@ -401,51 +402,62 @@ RAFT_KERNEL __launch_bounds__(1024, 1) search_kernel(
 #ifdef _CLK_BREAKDOWN
   if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
       ((query_id * 3) % gridDim.y < 3)) {
-    printf(
-      "%s:%d "
-      "query, %d, thread, %d"
-      ", init, %lu"
-      ", 1st_distance, %lu"
-      ", topk, %lu"
-      ", pickup_parents, %lu"
-      ", distance, %lu"
-      "\n",
-      __FILE__,
-      __LINE__,
-      query_id,
-      threadIdx.x,
-      clk_init,
-      clk_compute_1st_distance,
-      clk_topk,
-      clk_pickup_parents,
-      clk_compute_distance);
+    atomicAdd(&cagra_metrics->clk_init, clk_init);
+    atomicAdd(&cagra_metrics->clk_compute_1st_distance, clk_compute_1st_distance);
+    atomicAdd(&cagra_metrics->clk_topk, clk_topk);
+    atomicAdd(&cagra_metrics->clk_pickup_parents, clk_pickup_parents);
+    // atomicAdd(&cagra_metrics->clk_compute_distance, clk_compute_distance);
+    atomicAdd(&cagra_metrics->clk_counter, 1UL);
+    // printf(
+    //   "%s:%d "
+    //   "query, %d, thread, %d"
+    //   ", init, %lu"
+    //   ", 1st_distance, %lu"
+    //   ", topk, %lu"
+    //   ", pickup_parents, %lu"
+    //   ", distance, %lu"
+    //   "\n",
+    //   __FILE__,
+    //   __LINE__,
+    //   query_id,
+    //   threadIdx.x,
+    //   clk_init,
+    //   clk_compute_1st_distance,
+    //   clk_topk,
+    //   clk_pickup_parents,
+    //   clk_compute_distance);
   }
 #endif
 #ifdef _GRAPH_QUALITY_ANALYSIS
   if (threadIdx.x == 0 && cta_id == 0 && query_id < 10) {
-    printf(
-      "GRAPH: cagra-multi-cta, file: %s, line: %d, query_id: %u, num_executed_iterations: %u, "
-      "min_iteration: %u, max_iteration: %u, local_distance_calculation_counter1: %lu, "
-      "local_distance_calculation_counter2: %lu\n",
-      __FILE__,
-      __LINE__,
-      query_id,
-      iter + 1,
-      min_iteration,
-      max_iteration,
-      local_distance_calculation_counter1,
-      local_distance_calculation_counter2);
-
-    if (cta_id == 0 && query_id == 0) {
-      printf(
-        "GRAPH: cagra-multi-cta, file: %s, line: %d, global_distance_calculation_counter1: %lu, "
-        "global_distance_calculation_counter2: %lu, num_queries: %u\n",
-        __FILE__,
-        __LINE__,
-        *graph_metrics_global_distance_calculation_counter1_ptr,
-        *graph_metrics_global_distance_calculation_counter2_ptr,
-        gridDim.y);
-    }
+    atomicAdd(&cagra_metrics->global_distance_calculation_counter3,
+              local_distance_calculation_counter1);
+    atomicAdd(&cagra_metrics->global_distance_calculation_counter4,
+              local_distance_calculation_counter2);
+    atomicAdd(&cagra_metrics->global_distance_calculation_counter3_4_counter, 1UL);
+    // printf(
+    //   "GRAPH: cagra-multi-cta, file: %s, line: %d, query_id: %u, num_executed_iterations: %u, "
+    //   "min_iteration: %u, max_iteration: %u, local_distance_calculation_counter1: %lu, "
+    //   "local_distance_calculation_counter2: %lu\n",
+    //   __FILE__,
+    //   __LINE__,
+    //   query_id,
+    //   iter + 1,
+    //   min_iteration,
+    //   max_iteration,
+    //   local_distance_calculation_counter1,
+    //   local_distance_calculation_counter2);
+    //
+    // if (cta_id == 0 && query_id == 0) {
+    //   printf(
+    //     "GRAPH: cagra-multi-cta, file: %s, line: %d, global_distance_calculation_counter1: %lu, "
+    //     "global_distance_calculation_counter2: %lu, num_queries: %u\n",
+    //     __FILE__,
+    //     __LINE__,
+    //     *graph_metrics_global_distance_calculation_counter1_ptr,
+    //     *graph_metrics_global_distance_calculation_counter2_ptr,
+    //     gridDim.y);
+    // }
   }
 #endif
 }
@@ -519,8 +531,7 @@ void select_and_run(const dataset_descriptor_host<DataT, IndexT, DistanceT>& dat
                     uint32_t num_seeds,
                     SampleFilterT sample_filter,
 #ifdef _GRAPH_QUALITY_ANALYSIS
-                    uint64_t* graph_metrics_global_distance_calculation_counter1_ptr,
-                    uint64_t* graph_metrics_global_distance_calculation_counter2_ptr,
+                    CagraMetrics* cagra_metrics,
 #endif
                     cudaStream_t stream)
 {
@@ -563,16 +574,15 @@ void select_and_run(const dataset_descriptor_host<DataT, IndexT, DistanceT>& dat
     sample_filter
 #ifdef _GRAPH_QUALITY_ANALYSIS
     ,
-    graph_metrics_global_distance_calculation_counter1_ptr,
-    graph_metrics_global_distance_calculation_counter2_ptr
+    cagra_metrics
 #endif
   );
-#ifdef _GRAPH_QUALITY_ANALYSIS
-  printf("GRAPH: cagra-multi-cta, file: %s, line: %d, num_queries: %u\n",
-         __FILE__,
-         __LINE__,
-         num_queries);
-#endif
+// #ifdef _GRAPH_QUALITY_ANALYSIS
+//   printf("GRAPH: cagra-multi-cta, file: %s, line: %d, num_queries: %u\n",
+//          __FILE__,
+//          __LINE__,
+//          num_queries);
+// #endif
 }
 
 }  // namespace multi_cta_search

@@ -263,6 +263,13 @@ if(BUILD_SHARED_LIBS)
 
   file(GLOB_RECURSE compute_distance_sources "src/neighbors/detail/cagra/compute_distance_*.cu")
   set_source_files_properties(${compute_distance_sources} PROPERTIES COMPILE_FLAGS -maxrregcount=64)
+  # maxrregcount=64 compile error in debug mode
+  # set_source_files_properties(${compute_distance_sources}
+  #       src/neighbors/cagra_search_float.cu
+  #       src/neighbors/cagra_search_half.cu
+  #       src/neighbors/cagra_search_int8.cu
+  #       src/neighbors/cagra_search_uint8.cu
+  #     PROPERTIES COMPILE_OPTIONS "-O0;-g;-G;-maxrregcount=255")
 
   set_target_properties(
     cuvs-cagra-search
@@ -282,6 +289,7 @@ if(BUILD_SHARED_LIBS)
   target_compile_options(
     cuvs-cagra-search PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUVS_CXX_FLAGS}>"
                               "$<$<COMPILE_LANGUAGE:CUDA>:${CUVS_CUDA_FLAGS}>"
+                              # "-O0;-g;-G"
   )
 
   if(BUILD_MG_ALGOS)

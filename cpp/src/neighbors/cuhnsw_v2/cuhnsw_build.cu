@@ -19,7 +19,7 @@ void CuHNSW::GetEntryPoints(QueryDataAccessor qdata_accessor,
                             const int min_level,
                             std::vector<int>& entries)
 {
-  assert(qdata);
+  // assert(qdata);
   thrust::device_vector<int> dev_visited_list(visited_list_size_ * block_cnt_);
   for (int level = max_level_; level > min_level; --level) {
     int size = qdata_accessor.size();

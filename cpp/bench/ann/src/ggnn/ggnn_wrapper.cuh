@@ -63,6 +63,22 @@ class ggnn : public algo<T>, public algo_gpu {
   {
     impl_->search(queries, batch_size, k, neighbors, distances);
   }
+
+  benchmark::UserCounters get_custom_counters() const override
+  {
+    return impl_->get_custom_counters();
+  }
+
+  void print_metrics() const override
+  {
+    return impl_->print_metrics();
+  }
+
+  void reset_metrics() override
+  {
+    return impl_->reset_metrics();
+  }
+
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
     return dynamic_cast<algo_gpu*>(impl_.get())->get_sync_stream();
@@ -83,6 +99,9 @@ class ggnn : public algo<T>, public algo_gpu {
   };
 
  private:
+  template<int DIM>
+  void create_impl(Metric metric, int dim, const build_param& param);
+
   std::shared_ptr<algo<T>> impl_;
 };
 

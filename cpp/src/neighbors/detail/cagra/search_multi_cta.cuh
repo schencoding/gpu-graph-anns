@@ -90,8 +90,7 @@ struct search : public search_plan_impl<DataT, IndexT, DistanceT, SAMPLE_FILTER_
   using base_type::dev_seed;
   using base_type::hashmap;
   using base_type::num_executed_iterations;
-  using base_type::graph_metrics_global_distance_calculation_counter1;
-  using base_type::graph_metrics_global_distance_calculation_counter2;
+  using base_type::cagra_metrics;
   using base_type::num_seeds;
 
   uint32_t num_cta_per_query;
@@ -211,7 +210,7 @@ struct search : public search_plan_impl<DataT, IndexT, DistanceT, SAMPLE_FILTER_
                   SAMPLE_FILTER_T sample_filter
   )
   {
-    cudaStream_t stream = raft::resource::get_cuda_stream(res);
+    auto stream = raft::resource::get_cuda_stream(res);
     select_and_run(dataset_desc,
                    graph,
                    intermediate_indices.data(),
@@ -231,8 +230,7 @@ struct search : public search_plan_impl<DataT, IndexT, DistanceT, SAMPLE_FILTER_
                    num_seeds,
                    sample_filter,
 #ifdef _GRAPH_QUALITY_ANALYSIS
-                   graph_metrics_global_distance_calculation_counter1.data(),
-                   graph_metrics_global_distance_calculation_counter2.data(),
+                   cagra_metrics.data(),
 #endif
                    stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -254,6 +252,18 @@ struct search : public search_plan_impl<DataT, IndexT, DistanceT, SAMPLE_FILTER_
                      true,
                      NULL,
                      stream);
+#ifdef _GRAPH_QUALITY_ANALYSIS
+    uint32_t* my_num_executed_iterations_host = new uint32_t[num_queries];
+    raft::update_host(my_num_executed_iterations_host, num_executed_iterations, num_queries, stream);
+    // copy the metrics back to host
+    CagraMetrics cagra_metrics_host;
+    raft::update_host(&cagra_metrics_host, cagra_metrics.data(), 1, stream);
+    // sync the cuda_stream
+    raft::resource::sync_stream(res, stream);
+    // uint32_t* num_executed_iterations_host = new uint32_t[num_queries];
+    // raft::update_host(num_executed_iterations_host, num_executed_iterations, num_queries, stream);
+    CagraMetricsAccumulator::get_instance().accumulate(cagra_metrics_host, my_num_executed_iterations_host, num_queries, CagraKernelType::kMultiCta);
+#endif
   }
 };
 

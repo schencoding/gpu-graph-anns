@@ -42,8 +42,7 @@ namespace cuvs::neighbors::cagra::detail::multi_cta_search {
     uint32_t num_cta_per_query,                                               \
     uint32_t num_seeds,                                                       \
     SampleFilterT sample_filter,                                              \
-    uint64_t* graph_metrics_global_distance_calculation_counter1_ptr,         \
-    uint64_t* graph_metrics_global_distance_calculation_counter2_ptr,         \
+    CagraMetrics* metrics,                                                    \
     cudaStream_t stream);
 #else
 #define instantiate_kernel_selection(DataT, IndexT, DistanceT, SampleFilterT) \

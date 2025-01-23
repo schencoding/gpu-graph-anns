@@ -33,13 +33,12 @@
 #include <mutex>
 #include <numeric>
 #include <stdexcept>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
 
 namespace cuvs::bench {
-
-constexpr bool collect_metrics = false;
 
 template <typename T>
 struct hnsw_dist_t {
@@ -90,6 +89,36 @@ class hnsw_lib : public algo<T> {
 
   void save(const std::string& path_to_index) const override;
   void load(const std::string& path_to_index) override;
+
+  benchmark::UserCounters get_custom_counters() const override
+  {
+    benchmark::UserCounters counters{};
+    if constexpr (cuvs::bench::collect_metrics) {
+      if (appr_alg_->metric_distance_calculation_per_layers == nullptr) {
+        throw std::runtime_error("metric_distance_calculation_per_layers is nullptr\n");
+      }
+      counters.insert({{"metric_maxlevel", appr_alg_->maxlevel_}});
+      for (int i = 0; i <= appr_alg_->maxlevel_; i++) {
+        counters.insert({{"metric_distance_calculation_layer_" + std::to_string(i),
+                          appr_alg_->metric_distance_calculation_per_layers[i].load()}});
+      }
+      counters.insert({{"metric_search_knn_count", appr_alg_->metric_search_knn_count.load()}});
+      counters.insert({{"metric_hops", appr_alg_->metric_hops.load()}});
+      counters.insert({{"metric_distance_computations", appr_alg_->metric_distance_computations.load()}});
+    }
+    return counters;
+  };
+
+  void print_metrics() const override
+  {
+    appr_alg_->print_metrics();
+  }
+
+  void reset_metrics() override
+  {
+    appr_alg_->reset_metrics();
+  }
+
   auto copy() -> std::unique_ptr<algo<T>> override { return std::make_unique<hnsw_lib<T>>(*this); };
 
   [[nodiscard]] auto get_preference() const -> algo_property override
@@ -190,7 +219,7 @@ template <typename T>
 void hnsw_lib<T>::search(
   const T* query, int batch_size, int k, algo_base::index_type* indices, float* distances) const
 {
-  if constexpr (collect_metrics) { appr_alg_->reset_metrics(); }
+  // if constexpr (collect_metrics) { appr_alg_->reset_metrics(); }
   auto f = [&](int i) {
     // hnsw can only handle a single vector at a time.
     get_search_knn_results(query + i * dim_, k, indices + i * k, distances + i * k);
@@ -202,7 +231,7 @@ void hnsw_lib<T>::search(
       f(i);
     }
   }
-  if constexpr (collect_metrics) { appr_alg_->print_metrics(); }
+  // if constexpr (collect_metrics) { appr_alg_->print_metrics(); }
 }
 
 template <typename T>

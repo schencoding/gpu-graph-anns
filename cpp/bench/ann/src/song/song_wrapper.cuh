@@ -78,6 +78,8 @@ class song : public algo<data_value_t>, public algo_gpu {
   }
 
  private:
+  template <Metric metric>
+  void make_impl(int dim, const build_param& param);
   std::shared_ptr<algo<data_value_t>> impl_;
 };
 
@@ -139,24 +141,51 @@ class song_impl : public algo<data_value_t>, public algo_gpu {
   size_t base_n_rows_        = 0;
 };
 
+template <Metric metric>
+struct ConvertMetricTrait;
+
+template <>
+struct ConvertMetricTrait<Metric::kEuclidean> {
+  static constexpr SongMetricType metric = SongMetricType::L2;
+};
+
+template <>
+struct ConvertMetricTrait<Metric::kInnerProduct> {
+  static constexpr SongMetricType metric = SongMetricType::IP;
+};
+
+template <Metric metric>
+void song::make_impl(int dim, const build_param& param)
+{
+  switch (dim) {
+    case 100:
+      impl_ =
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 100>>(metric, dim, param);
+      break;
+    case 128:
+      impl_ =
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 128>>(metric, dim, param);
+      break;
+    case 256:
+      impl_ =
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 256>>(metric, dim, param);
+      break;
+    case 768:
+      impl_ =
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 768>>(metric, dim, param);
+      break;
+    case 960:
+      impl_ =
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 960>>(metric, dim, param);
+      break;
+  }
+}
+
 song::song(Metric metric, int dim, const build_param& param) : algo<float>(metric, dim)
 {
-  if (metric == Metric::kEuclidean) {
-    if (dim == 100) {
-      impl_ = std::make_shared<song_impl<SongMetricType::L2, 100>>(metric, dim, param);
-    } else if (dim == 128) {
-      impl_ = std::make_shared<song_impl<SongMetricType::L2, 128>>(metric, dim, param);
-    } else if (dim == 960) {
-      impl_ = std::make_shared<song_impl<SongMetricType::L2, 960>>(metric, dim, param);
-    }
-  } else if (metric == Metric::kInnerProduct) {
-    if (dim == 100) {
-      impl_ = std::make_shared<song_impl<SongMetricType::IP, 100>>(metric, dim, param);
-    } else if (dim == 128) {
-      impl_ = std::make_shared<song_impl<SongMetricType::IP, 128>>(metric, dim, param);
-    } else if (dim == 960) {
-      impl_ = std::make_shared<song_impl<SongMetricType::IP, 960>>(metric, dim, param);
-    }
+  switch (metric) {
+    case Metric::kEuclidean: make_impl<Metric::kEuclidean>(dim, param); break;
+    case Metric::kInnerProduct: make_impl<Metric::kInnerProduct>(dim, param); break;
   }
   if (!impl_) { throw std::runtime_error("unsupported metric or dim"); }
 }

@@ -15,10 +15,11 @@
  */
 #pragma once
 
+#include "graph_analysis_macros.h"
 #include "hashmap.hpp"
 #include "utils.hpp"
-
 #include <cuvs/distance/distance.hpp>
+#include <cuvs/neighbors/cagra_metrics.cuh>
 // TODO: This shouldn't be invoking anything in detail APIs outside of cuvs/neighbors
 #include <raft/core/detail/macros.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -28,8 +29,6 @@
 
 #include <cfloat>
 #include <cstdint>
-
-// #define _GRAPH_QUALITY_ANALYSIS
 
 namespace cuvs::neighbors::cagra::detail {
 namespace device {
@@ -112,8 +111,7 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
   IndexT* __restrict__ visited_hash_ptr,
   const uint32_t hash_bitlen,
 #ifdef _GRAPH_QUALITY_ANALYSIS
-  uint64_t* __restrict__ global_distance_calculation_counter1,
-  uint64_t* __restrict__ global_distance_calculation_counter2,
+  CagraMetrics* __restrict__ metrics,
   uint64_t* __restrict__ local_distance_calculation_counter1,
   uint64_t* __restrict__ local_distance_calculation_counter2,
 #endif
@@ -162,7 +160,7 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
       }
 #ifdef _GRAPH_QUALITY_ANALYSIS
       if (blockIdx.x == 0) {  // local CTA ID
-        atomicAdd(global_distance_calculation_counter1, 1UL);
+        atomicAdd(&metrics->global_distance_calculation_counter1, 1UL);
         atomicAdd(local_distance_calculation_counter1, 1UL);
       }
 #endif
@@ -170,7 +168,7 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
   }
 #ifdef _GRAPH_QUALITY_ANALYSIS
   if (threadIdx.x == 0 && blockIdx.x == 0) {  // local CTA ID
-    atomicAdd(global_distance_calculation_counter2, static_cast<uint64_t>(num_pickup));
+    atomicAdd(&metrics->global_distance_calculation_counter2, static_cast<uint64_t>(num_pickup));
     atomicAdd(local_distance_calculation_counter2, static_cast<uint64_t>(num_pickup));
   }
   __syncthreads();
@@ -194,8 +192,7 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_child_nodes(
   const uint32_t search_width
 #ifdef _GRAPH_QUALITY_ANALYSIS
   ,
-  uint64_t* __restrict__ global_distance_calculation_counter1,
-  uint64_t* __restrict__ global_distance_calculation_counter2,
+  CagraMetrics* __restrict__ metrics,
   uint64_t* __restrict__ local_distance_calculation_counter1,
   uint64_t* __restrict__ local_distance_calculation_counter2
 #endif
@@ -204,6 +201,9 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_child_nodes(
   constexpr IndexT index_msb_1_mask = utils::gen_index_msb_1_mask<IndexT>::value;
   constexpr IndexT invalid_index    = raft::upper_bound<IndexT>();
 
+#ifdef _GRAPH_QUALITY_ANALYSIS
+  uint64_t clk_start = clock64();
+#endif
   // Read child indices of parents from knn graph and check if the distance
   // computaiton is necessary.
   for (uint32_t i = threadIdx.x; i < knn_k * search_width; i += blockDim.x) {
@@ -220,8 +220,19 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_child_nodes(
     }
     result_child_indices_ptr[i] = child_id;
   }
+#ifdef _GRAPH_QUALITY_ANALYSIS
+  uint64_t clk_insert_hashmap = clock64() - clk_start;
+  if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
+      ((blockIdx.y * 3) % gridDim.y < 3)) {
+    atomicAdd(&metrics->clk_insert_hashmap, clk_insert_hashmap);
+  }
+#endif
   __syncthreads();
 
+#ifdef _GRAPH_QUALITY_ANALYSIS
+  uint64_t temp_local_distance_calculation_counter1 = 0;
+  clk_start                                         = clock64();
+#endif
   // Compute the distance to child nodes
   const auto team_size_bits   = dataset_desc.team_size_bitshift_from_smem();
   const auto num_k            = knn_k * search_width;
@@ -247,15 +258,24 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_child_nodes(
       result_child_distances_ptr[i] = child_dist;
 #ifdef _GRAPH_QUALITY_ANALYSIS
       if (blockIdx.x == 0) {  // local CTA ID
-        atomicAdd(global_distance_calculation_counter1, 1UL);
-        atomicAdd(local_distance_calculation_counter1, 1UL);
+        temp_local_distance_calculation_counter1 += 1;
       }
 #endif
     }
   }
 #ifdef _GRAPH_QUALITY_ANALYSIS
+  uint64_t clk_compute_distance = clock64() - clk_start;
+  if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
+      ((blockIdx.y * 3) % gridDim.y < 3)) {
+    atomicAdd(&metrics->clk_compute_distance, clk_compute_distance);
+  }
+  if (lead_lane && blockIdx.x == 0) {
+    atomicAdd(&metrics->global_distance_calculation_counter1,
+              temp_local_distance_calculation_counter1);
+    atomicAdd(local_distance_calculation_counter1, temp_local_distance_calculation_counter1);
+  }
   if (threadIdx.x == 0 && blockIdx.x == 0) {  // local CTA ID
-    atomicAdd(global_distance_calculation_counter2, static_cast<uint64_t>(num_k));
+    atomicAdd(&metrics->global_distance_calculation_counter2, static_cast<uint64_t>(num_k));
     atomicAdd(local_distance_calculation_counter2, static_cast<uint64_t>(num_k));
   }
   __syncthreads();

@@ -11,6 +11,14 @@ groups:
     search:
       itopk: [32, 64, 128, 256, 512]
       search_width: [1, 2, 4, 8, 16, 32, 64]
+  graph_analysis_v2:
+    build:
+      graph_degree: [32, 64, 96, 128]
+      intermediate_graph_degree: [32, 64, 96, 128]
+      graph_build_algo: ["NN_DESCENT"]
+    search:
+      itopk: [32, 64, 128, 256, 512]
+      search_width: [1, 2, 4, 8, 16, 32, 64]
   profile1:
     build:
       graph_degree: [128]

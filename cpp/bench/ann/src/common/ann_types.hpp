@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "benchmark/benchmark.h"
 #include "cuda_stub.hpp"  // cudaStream_t
 
 #include <memory>
@@ -25,6 +26,8 @@
 #include <vector>
 
 namespace cuvs::bench {
+
+constexpr bool collect_metrics = true;
 
 /** Benchmark mode: measuring latency vs throughput. */
 enum class Mode {
@@ -153,7 +156,11 @@ class algo : public algo_base {
   // and set_search_dataset() should save the passed-in pointer somewhere.
   // The client code should call set_search_dataset() before searching,
   // and should not release dataset before searching is finished.
-  virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/){};
+  virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/) {};
+
+  virtual benchmark::UserCounters get_custom_counters() const { return {}; };
+  virtual void print_metrics() const {};
+  virtual void reset_metrics() {};
 
   /**
    * Make a shallow copy of the algo wrapper that shares the resources and ensures thread-safe
@@ -166,6 +173,6 @@ class algo : public algo_base {
 #define REGISTER_ALGO_INSTANCE(DataT)                                                              \
   template auto cuvs::bench::create_algo<DataT>(                                                   \
     const std::string&, const std::string&, int, const nlohmann::json&)                            \
-    ->std::unique_ptr<cuvs::bench::algo<DataT>>;                                                   \
+    -> std::unique_ptr<cuvs::bench::algo<DataT>>;                                                  \
   template auto cuvs::bench::create_search_param<DataT>(const std::string&, const nlohmann::json&) \
-    ->std::unique_ptr<typename cuvs::bench::algo<DataT>::search_param>;
+    -> std::unique_ptr<typename cuvs::bench::algo<DataT>::search_param>;
