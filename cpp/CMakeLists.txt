@@ -384,7 +384,6 @@ if(BUILD_SHARED_LIBS)
     src/embed/spectral.cu
     src/neighbors/brute_force.cu
     src/neighbors/brute_force_serialize.cu
-    src/neighbors/cagra_metric.cu
     src/neighbors/cagra_build_float.cu
     src/neighbors/cagra_build_half.cu
     src/neighbors/cagra_build_int8.cu

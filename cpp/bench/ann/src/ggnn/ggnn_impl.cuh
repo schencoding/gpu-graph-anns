@@ -43,7 +43,9 @@ class ggnn_impl : public algo<T>, public algo_gpu {
 
   void set_search_dataset(const T* dataset, size_t nrow) override;
 
-  benchmark::UserCounters get_custom_counters() const override {}
+  benchmark::UserCounters get_custom_counters() const override {
+    return {};
+  }
 
   void print_metrics() const override {}
 
@@ -104,6 +106,7 @@ class ggnn_impl : public algo<T>, public algo_gpu {
 
 INSTANTIATE(100);
 INSTANTIATE(128);
+INSTANTIATE(768);
 INSTANTIATE(960);
 #undef INSTANTIATE
 }  // namespace cuvs::bench

@@ -141,6 +141,7 @@ void ggnn_impl<T, measure, D, KBuild, KQuery, S>::load(const std::string& file)
 
 INSTANTIATE(100);
 INSTANTIATE(128);
+INSTANTIATE(768);
 INSTANTIATE(960);
 #undef INSTANTIATE
 }  // namespace cuvs::bench
