@@ -28,6 +28,7 @@
 namespace cuvs::bench {
 
 constexpr bool collect_metrics = true;
+// constexpr bool collect_metrics = false;
 
 /** Benchmark mode: measuring latency vs throughput. */
 enum class Mode {

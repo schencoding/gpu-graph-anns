@@ -45,6 +45,7 @@ void parse_search_param(const nlohmann::json& conf,
                         typename cuvs::bench::cuhnsw::search_param& param)
 {
   param.ef_search = conf.at("ef_search");
+  param.block_dim_search = conf.at("block_dim_search");
 }
 
 template <typename T, class Algo>

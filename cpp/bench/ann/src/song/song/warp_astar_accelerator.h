@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include "kernel_pair.h"
 #include"data.h"
 #include<vector>
@@ -33,9 +34,51 @@
 #define __ENABLE_MEASURE
 
 struct Measure{
+	unsigned long long stage_init = 0;
 	unsigned long long stage1 = 0;
-	unsigned long long stage2 = 0;
+	unsigned long long stage_distance_computation = 0;
 	unsigned long long stage3 = 0;
+  unsigned long long stage_final = 0;
+  unsigned long long distance_computation_counter = 0;
+
+  unsigned long long metric_queries = 0;
+
+  static Measure& get_instance(){
+    static Measure instance;
+    return instance;
+  }
+
+  void print_metrics()
+  {
+    std::cout << "stage_init: " << stage_init << std::endl;
+    std::cout << "stage1: " << stage1 << std::endl;
+    std::cout << "stage_distance_computation: " << stage_distance_computation << std::endl;
+    std::cout << "stage3: " << stage3 << std::endl;
+    std::cout << "stage_final: " << stage_final << std::endl;
+    std::cout << "distance_computation_counter: " << distance_computation_counter << std::endl;
+    std::cout << "metric_queries: " << metric_queries << std::endl;
+  }
+  void reset()
+  {
+    stage_init                   = 0;
+    stage1                       = 0;
+    stage_distance_computation   = 0;
+    stage3                       = 0;
+    stage_final                  = 0;
+    distance_computation_counter = 0;
+    metric_queries               = 0;
+  }
+
+  void accumulate(const Measure& other)
+  {
+    stage_init += other.stage_init;
+    stage1 += other.stage1;
+    stage_distance_computation += other.stage_distance_computation;
+    stage3 += other.stage3;
+    stage_final += other.stage_final;
+    distance_computation_counter += other.distance_computation_counter;
+    metric_queries += other.metric_queries;
+  }
 };
 
 template<SongMetricType metric_type, int DIM, int TOPK>
@@ -45,6 +88,9 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 ,Measure* measure
 #endif
 ){
+#ifdef __ENABLE_MEASURE
+		auto stage_init_start = clock64();
+#endif
 	const int QUEUE_SIZE = TOPK;
     int bid = blockIdx.x * N_MULTIQUERY;
 	const int step = N_THREAD_IN_WARP;
@@ -170,6 +216,13 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 		pbf->add(0);
 	}
 	__syncthreads();
+
+#ifdef __ENABLE_MEASURE
+		auto stage_init_end = clock64();
+		if(tid == 0)
+			atomicAdd(&measure->stage_init,stage_init_end - stage_init_start);
+#endif
+
     while(heap_size[cid] > 1){
 #ifdef __ENABLE_MEASURE
 		auto stage1_start = clock64();
@@ -224,9 +277,12 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 		__syncthreads();
 
 #ifdef __ENABLE_MEASURE
+    // NOTE(jiangyinzuo): distance computation
 		auto stage1_end = clock64();
-		if(tid == 0)
-			atomicAdd(&measure->stage1,stage1_end - stage1_start);	
+		if(tid == 0) {
+			atomicAdd(&measure->stage1,stage1_end - stage1_start);
+      atomicAdd(&measure->distance_computation_counter, index_list_len[cid]);
+    }
 		auto stage2_start = clock64();
 #endif
 		for(int nq = 0;nq < N_MULTIQUERY;++nq){
@@ -279,7 +335,7 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 #ifdef __ENABLE_MEASURE
 		auto stage2_end = clock64();
 		if(tid == 0)
-			atomicAdd(&measure->stage2,stage2_end - stage2_start);	
+			atomicAdd(&measure->stage_distance_computation,stage2_end - stage2_start);	
 		auto stage3_start = clock64();
 #endif
 
@@ -317,6 +373,8 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 #endif
     }
 
+#ifdef __ENABLE_MEASURE
+	auto stage_final_start= clock64();
 	if(subtid == 0){
 		for(int i = 0;i < TOPK;++i){
 			auto now = pop_heap(topk,topk + topk_heap_size - i);
@@ -327,6 +385,10 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
     	delete pbf;
     	delete[] dist_list;
 	}
+    auto stage_final_end = clock64();
+    if(tid == 0)
+      atomicAdd(&measure->stage_final,stage_final_end - stage_final_start);
+#endif
 }
 
 class WarpAStarAccelerator{
@@ -393,9 +455,17 @@ public:
 		fprintf(stderr,"transfer back result takes %ld microseconds\n",std::chrono::duration_cast<std::chrono::microseconds>(back_end - back_begin).count());
 
 		cudaMemcpy(&h_measure,d_measure,sizeof(Measure),cudaMemcpyDeviceToHost);
-		auto stage_sum = h_measure.stage1 + h_measure.stage2 + h_measure.stage3;
-		fprintf(stderr,"stages percentage %.2f %.2f %.2f\n", h_measure.stage1 * 100.0 / stage_sum,
-			h_measure.stage2 * 100.0 / stage_sum,h_measure.stage3 * 100.0 / stage_sum);
+		auto stage_sum = h_measure.stage_init + h_measure.stage1 + h_measure.stage_distance_computation + h_measure.stage3 + h_measure.stage_final;
+		fprintf(stderr,"stages percentage %.2f %.2f %.2f %.2f %.2f\n",
+        h_measure.stage_init * 100.0 / stage_sum,
+        h_measure.stage1 * 100.0 / stage_sum,
+        h_measure.stage_distance_computation * 100.0 / stage_sum,
+        h_measure.stage3 * 100.0 / stage_sum,
+        h_measure.stage_final * 100.0 / stage_sum);
+
+    // accumulate
+    h_measure.metric_queries = queries.size();
+    Measure::get_instance().accumulate(h_measure);
 #endif
 		results.clear();
 		for(size_t i = 0;i < queries.size();++i){

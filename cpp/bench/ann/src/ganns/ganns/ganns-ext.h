@@ -36,31 +36,16 @@ void GANNS::DisplaySearchParameters(int num_of_topk, int num_of_candidates) {
   return graph_->DisplaySearchParameters(num_of_topk, num_of_candidates);
 }
 
-template <ganns::MetricType metric_type, int DIM>
+template <ganns::MetricType metric_type, int DIM, bool collect_metrics>
 void GANNS::AddGraph(std::string graph_type, Data *points) {
   if (graph_type == "nsw") {
     graph_ =
-        new NavigableSmallWorldGraphWithFixedDegree<metric_type, DIM>(points);
+        new NavigableSmallWorldGraphWithFixedDegree<metric_type, DIM, collect_metrics>(points);
   } else if (graph_type == "hnsw") {
-    graph_ = new HierarchicalNavigableSmallWorld<metric_type, DIM>(points);
+    graph_ = new HierarchicalNavigableSmallWorld<metric_type, DIM, collect_metrics>(points);
   }
 }
 
-template void
-GANNS::AddGraph<ganns::MetricType::L2, 128>(std::string graph_type,
-                                            Data *points);
-template void
-GANNS::AddGraph<ganns::MetricType::L2, 100>(std::string graph_type,
-                                            Data *points);
-template void
-GANNS::AddGraph<ganns::MetricType::L2, 96>(std::string graph_type,
-                                            Data *points);
-template void
-GANNS::AddGraph<ganns::MetricType::IP, 100>(std::string graph_type,
-                                            Data *points);
-template void
-GANNS::AddGraph<ganns::MetricType::IP, 96>(std::string graph_type,
-                                            Data *points);
 
 void GANNS::Load(std::string graph_path) { graph_->Load(graph_path); }
 

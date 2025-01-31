@@ -19,7 +19,7 @@
 
 using namespace std;
 
-template <ganns::MetricType metric_type, int DIM>
+template <ganns::MetricType metric_type, int DIM, bool collect_metrics>
 class HierarchicalNavigableSmallWorld : public GraphWrapper {
  private:
   Data* points_;
@@ -207,7 +207,7 @@ class HierarchicalNavigableSmallWorld : public GraphWrapper {
     // DisplaySearchParameters(num_of_topk_, num_of_explored_points);
 
     // std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    HNSWGraphOperations<metric_type, DIM>::Search(points_->GetFirstPositionofPoint(0),
+    HNSWGraphOperations<metric_type, DIM, collect_metrics>::Search(points_->GetFirstPositionofPoint(0),
                                 queries,
                                 graph_,
                                 results,
@@ -266,7 +266,7 @@ class HierarchicalNavigableSmallWorld : public GraphWrapper {
     }
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    HNSWGraphOperations<metric_type, DIM>::LocalGraphConstructionBruteForce(points_->GetFirstPositionofPoint(0),
+    HNSWGraphOperations<metric_type, DIM,collect_metrics>::LocalGraphConstructionBruteForce(points_->GetFirstPositionofPoint(0),
                                                           num_of_final_neighbors,
                                                           points_->GetNumPoints(),
                                                           points_->GetDimofPoints(),
@@ -276,7 +276,7 @@ class HierarchicalNavigableSmallWorld : public GraphWrapper {
                                                           d_points,
                                                           d_neighbors_backup);
 
-    HNSWGraphOperations<metric_type, DIM>::LocalGraphMergenceCoorperativeGroup(d_points,
+    HNSWGraphOperations<metric_type, DIM, collect_metrics>::LocalGraphMergenceCoorperativeGroup(d_points,
                                                              graph_,
                                                              points_->GetNumPoints(),
                                                              points_->GetDimofPoints(),

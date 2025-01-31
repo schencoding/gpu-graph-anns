@@ -571,6 +571,7 @@ __device__ void search_core(
   std::uint64_t clk_pickup_parents       = 0;
   std::uint64_t clk_restore_hash         = 0;
   // std::uint64_t clk_compute_distance     = 0;
+  std::uint64_t clk_total_start = clock64();
   std::uint64_t clk_start;
 #define _CLK_START() clk_start = clock64()
 #define _CLK_REC(V)  V += clock64() - clk_start;
@@ -928,6 +929,7 @@ __device__ void search_core(
     num_executed_iterations[query_id] = iter + 1;
   }
 #ifdef _CLK_BREAKDOWN
+  std::uint64_t clk_total_end = clock64();
   if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && ((query_id * 3) % gridDim.y < 3)) {
   //   printf(
   //     "%s:%d "
@@ -958,6 +960,7 @@ __device__ void search_core(
     atomicAdd(&cagra_metrics->clk_pickup_parents, clk_pickup_parents);
     atomicAdd(&cagra_metrics->clk_restore_hash, clk_restore_hash);
     // atomicAdd(&cagra_metrics->clk_compute_distance, clk_compute_distance);
+    atomicAdd(&cagra_metrics->clk_total, clk_total_end - clk_total_start);
     atomicAdd(&cagra_metrics->clk_counter, 1UL);
   }
 #endif

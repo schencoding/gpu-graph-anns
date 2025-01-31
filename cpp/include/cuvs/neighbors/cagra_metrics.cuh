@@ -13,6 +13,7 @@ struct CagraMetrics {
   std::uint64_t clk_restore_hash;
   std::uint64_t clk_insert_hashmap;
   std::uint64_t clk_compute_distance;
+  std::uint64_t clk_total;
 
   uint64_t clk_counter;
 
@@ -32,6 +33,7 @@ struct CagraMetrics {
     clk_restore_hash         = 0;
     clk_insert_hashmap       = 0;
     clk_compute_distance     = 0;
+    clk_total                = 0;
     clk_counter              = 0;
 
     global_distance_calculation_counter1           = 0;
@@ -82,6 +84,7 @@ struct CagraMetricsAccumulator {
     metrics.clk_restore_hash += m.clk_restore_hash;
     metrics.clk_insert_hashmap += m.clk_insert_hashmap;
     metrics.clk_compute_distance += m.clk_compute_distance;
+    metrics.clk_total += m.clk_total;
     metrics.clk_counter += m.clk_counter;
 
     metrics.global_distance_calculation_counter1 += m.global_distance_calculation_counter1;
@@ -115,6 +118,7 @@ struct CagraMetricsAccumulator {
     std::cout << "clk_restore_hash: " << metrics.clk_restore_hash << std::endl;
     std::cout << "clk_insert_hashmap: " << metrics.clk_insert_hashmap << std::endl;
     std::cout << "clk_compute_distance: " << metrics.clk_compute_distance << std::endl;
+    std::cout << "clk_total: " << metrics.clk_total << std::endl;
     std::cout << "clk_counter: " << metrics.clk_counter << std::endl;
     std::cout << "global_distance_calculation_counter1: " << metrics.global_distance_calculation_counter1 << std::endl;
     std::cout << "global_distance_calculation_counter2: " << metrics.global_distance_calculation_counter2 << std::endl;

@@ -31,7 +31,7 @@ ggnn<T>::ggnn(Metric metric, int dim, const build_param& param) : algo<T>(metric
   if (impl_) { return; }
   create_impl<128>(metric, dim, param);
   if (impl_) { return; }
-  create_impl<768>(metric, dim, param);
+  create_impl<784>(metric, dim, param);
   if (impl_) { return; }
   create_impl<960>(metric, dim, param);
   if (impl_) { return; }

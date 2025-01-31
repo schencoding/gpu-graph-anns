@@ -17,6 +17,7 @@ groups:
       log_level: [2]
     search:
       ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
+      block_dim_search: [32, 64, 96, 128]
   ncu:
     build:
       max_m: [32]

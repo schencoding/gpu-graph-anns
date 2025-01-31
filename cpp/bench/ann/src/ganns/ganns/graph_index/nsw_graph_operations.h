@@ -9,6 +9,7 @@
 #include "../kernel_global_edge_sort.h"
 #include "../kernel_aggregate_forward_edges.h"
 #include "../kernel_search_nsw.h"
+#include "metrics.h"
 
 __global__
 void ConvertNeighborstoGraph(int* d_graph, KernelPair<float, int>* d_neighbors, int total_num_of_points, int offset_shift, int num_of_iterations){
@@ -49,7 +50,7 @@ void LoadFirstSubgraph(std::pair<float, int>* first_subgraph, KernelPair<float, 
 	}
 }
 
-template <ganns::MetricType metric_type, int DIM>
+template <ganns::MetricType metric_type, int DIM, bool collect_metrics>
 class NSWGraphOperations {
 public:
 
@@ -172,48 +173,58 @@ public:
 		cudaMalloc(&d_graph, sizeof(int) * (total_num_of_points << offset_shift));
 		cudaMemcpy(d_graph, h_graph, sizeof(int) * (total_num_of_points << offset_shift), cudaMemcpyHostToDevice);
 
-		unsigned long long* h_time_breakdown;
-		unsigned long long* d_time_breakdown;
-		int num_of_phases = 6;
-		cudaMallocHost(&h_time_breakdown, num_of_query_points * num_of_phases * sizeof(unsigned long long));
-		cudaMalloc(&d_time_breakdown, num_of_query_points * num_of_phases * sizeof(unsigned long long));
-		cudaMemset(d_time_breakdown, 0, num_of_query_points * num_of_phases * sizeof(unsigned long long));
+		// unsigned long long* h_time_breakdown;
+		// unsigned long long* d_time_breakdown;
+		// int num_of_phases = 6;
+		// cudaMallocHost(&h_time_breakdown, num_of_query_points * num_of_phases * sizeof(unsigned long long));
+		// cudaMalloc(&d_time_breakdown, num_of_query_points * num_of_phases * sizeof(unsigned long long));
+		// cudaMemset(d_time_breakdown, 0, num_of_query_points * num_of_phases * sizeof(unsigned long long));
 
-		SearchDevice<metric_type, DIM><<<num_of_query_points, 32, ((1 << offset_shift) + num_of_candidates) * (sizeof(KernelPair<float, int>) + sizeof(int))>>>(d_data, d_query, d_result, d_graph, total_num_of_points, 
+    ganns::Metrics* metrics = nullptr;
+    cudaMallocManaged(&metrics, sizeof(ganns::Metrics));
+    metrics->reset();
+
+		SearchDevice<metric_type, DIM, collect_metrics><<<num_of_query_points, 32, ((1 << offset_shift) + num_of_candidates) * (sizeof(KernelPair<float, int>) + sizeof(int))>>>(d_data, d_query, d_result, d_graph, total_num_of_points, 
 																															num_of_query_points, offset_shift, num_of_candidates, num_of_topk, 
-																															num_of_explored_points, d_time_breakdown);
+																															num_of_explored_points, metrics);
 
-		/*cudaMemcpy(h_time_breakdown, d_time_breakdown, num_of_query_points * num_of_phases * sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+		  cudaMemcpy(h_result, d_result, sizeof(int) * num_of_query_points * num_of_topk, cudaMemcpyDeviceToHost);
+    if constexpr (collect_metrics) {
+      // cudaMemcpy(h_time_breakdown, d_time_breakdown, num_of_query_points * num_of_phases * sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+      //
+      // unsigned long long stage_1 = 0;
+      // unsigned long long stage_2 = 0;
+      // unsigned long long stage_3 = 0;
+      // unsigned long long stage_4 = 0;
+      // unsigned long long stage_5 = 0;
+      // unsigned long long stage_6 = 0;
+      //
+      // for (int i = 0; i < num_of_query_points; i++) {
+      //   stage_1	+= h_time_breakdown[i * num_of_phases];
+      //   stage_2	+= h_time_breakdown[i * num_of_phases + 1];
+      //   stage_3	+= h_time_breakdown[i * num_of_phases + 2];
+      //   stage_4	+= h_time_breakdown[i * num_of_phases + 3];
+      //   stage_5	+= h_time_breakdown[i * num_of_phases + 4];
+      //   stage_6	+= h_time_breakdown[i * num_of_phases + 5];
+      // }
+      //
+      // unsigned long long sum_of_all_stages = stage_1 + stage_2 + stage_3 + stage_4 + stage_5 + stage_6;
+      // std::cout << "stages percentage: " << (double)(stage_1) / sum_of_all_stages << " "
+      //   << (double)(stage_2) / sum_of_all_stages << " "
+      //   << (double)(stage_3) / sum_of_all_stages << " "
+      //   << (double)(stage_4) / sum_of_all_stages << " "
+      //   << (double)(stage_5) / sum_of_all_stages << " "
+      //   << (double)(stage_6) / sum_of_all_stages << std::endl;
+      metrics->metric_queries = num_of_query_points;
+      std::cout << "accumulating metrics" << std::endl;
+      ganns::Metrics::get_instance().accumulate(*metrics);
+    }
 
-		unsigned long long stage_1 = 0;
-		unsigned long long stage_2 = 0;
-		unsigned long long stage_3 = 0;
-		unsigned long long stage_4 = 0;
-		unsigned long long stage_5 = 0;
-		unsigned long long stage_6 = 0;
-
-		for (int i = 0; i < num_of_query_points; i++) {
-			stage_1	+= h_time_breakdown[i * num_of_phases];
-			stage_2	+= h_time_breakdown[i * num_of_phases + 1];
-			stage_3	+= h_time_breakdown[i * num_of_phases + 2];
-			stage_4	+= h_time_breakdown[i * num_of_phases + 3];
-			stage_5	+= h_time_breakdown[i * num_of_phases + 4];
-			stage_6	+= h_time_breakdown[i * num_of_phases + 5];
-		}
-
-		unsigned long long sum_of_all_stages = stage_1 + stage_2 + stage_3 + stage_4 + stage_5 + stage_6;
-		cout << "stages percentage: " << (double)(stage_1) / sum_of_all_stages << " "
-									  << (double)(stage_2) / sum_of_all_stages << " "
-									  << (double)(stage_3) / sum_of_all_stages << " "
-									  << (double)(stage_4) / sum_of_all_stages << " "
-									  << (double)(stage_5) / sum_of_all_stages << " "
-									  << (double)(stage_6) / sum_of_all_stages << endl;*/
-		cudaMemcpy(h_result, d_result, sizeof(int) * num_of_query_points * num_of_topk, cudaMemcpyDeviceToHost);
     cudaFree(d_data);
     cudaFree(d_query);
     cudaFree(d_result);
     cudaFree(d_graph);
-    cudaFree(d_time_breakdown);
+    // cudaFree(d_time_breakdown);
 	}
 
 };

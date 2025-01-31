@@ -63,11 +63,11 @@ auto create_algo(const std::string& algo_name,
   std::unique_ptr<cuvs::bench::algo<T>> a;
 
   if constexpr (std::is_same_v<T, float>) {
-    if (algo_name == "hnswlib") { a = make_algo<T, cuvs::bench::hnsw_lib>(metric, dim, conf); }
+    if (algo_name == "hnswlib" || algo_name == "hnswlib_32c") { a = make_algo<T, cuvs::bench::hnsw_lib>(metric, dim, conf); }
   }
 
   if constexpr (std::is_same_v<T, uint8_t>) {
-    if (algo_name == "hnswlib") { a = make_algo<T, cuvs::bench::hnsw_lib>(metric, dim, conf); }
+    if (algo_name == "hnswlib" || algo_name == "hnswlib_32c") { a = make_algo<T, cuvs::bench::hnsw_lib>(metric, dim, conf); }
   }
 
   if (!a) { throw std::runtime_error("invalid algo: '" + algo_name + "'"); }
@@ -78,7 +78,7 @@ template <typename T>
 auto create_search_param(const std::string& algo_name, const nlohmann::json& conf)
   -> std::unique_ptr<typename cuvs::bench::algo<T>::search_param>
 {
-  if (algo_name == "hnswlib") {
+  if (algo_name == "hnswlib" || algo_name == "hnswlib_32c") {
     auto param = std::make_unique<typename cuvs::bench::hnsw_lib<T>::search_param>();
     parse_search_param<T>(conf, *param);
     return param;

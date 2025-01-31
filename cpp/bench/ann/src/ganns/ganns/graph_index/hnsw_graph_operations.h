@@ -14,7 +14,7 @@
 
 using namespace std;
 
-template <ganns::MetricType metric_type, int DIM>
+template <ganns::MetricType metric_type, int DIM, bool collect_metrics>
 class HNSWGraphOperations {
 
 public:

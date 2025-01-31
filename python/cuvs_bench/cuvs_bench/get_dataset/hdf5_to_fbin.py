@@ -18,11 +18,14 @@ import sys
 
 import h5py
 import numpy as np
+from sklearn import preprocessing
 
 
 def normalize(x):
     norm = np.linalg.norm(x, axis=1)
     return (x.T / norm).T
+    # return preprocessing.normalize(x, "l2", axis=1)
+
 
 
 def write_bin(fname, data):

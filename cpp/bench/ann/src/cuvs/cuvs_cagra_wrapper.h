@@ -164,6 +164,7 @@ class cuvs_cagra : public algo<T>, public algo_gpu {
     counters["metrics_clk_restore_hash"]     = metric_accumulator.metrics.clk_restore_hash;
     counters["metrics_clk_compute_distance"] = metric_accumulator.metrics.clk_compute_distance;
     counters["metrics_clk_topk"]             = metric_accumulator.metrics.clk_topk;
+    counters["metrics_clk_total"]            = metric_accumulator.metrics.clk_total;
     counters["metrics_clk_counter"]          = metric_accumulator.metrics.clk_counter;
     return counters;
   }

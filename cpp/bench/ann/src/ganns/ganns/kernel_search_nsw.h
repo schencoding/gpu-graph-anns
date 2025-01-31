@@ -7,14 +7,17 @@
 #include<cuda_runtime.h>
 #include<chrono>
 #include<iostream>
+#include "graph_index/metrics.h"
 #include "structure_on_device.h"
 
 #include "metric_type.h"
 
-template <ganns::MetricType metric_type, int DIM>
+template <ganns::MetricType metric_type, int DIM, bool collect_metrics>
 __global__
 void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, int total_num_of_points, int num_of_query_points, int offset_shift, 
-                    int num_of_candidates, int num_of_results, int num_of_explored_points, unsigned long long* time_breakdown) {
+                    int num_of_candidates, int num_of_results, int num_of_explored_points, ganns::Metrics* metrics) {
+
+  auto stage_init_start = clock64();
 	int t_id = threadIdx.x;
     int b_id = blockIdx.x;
     int size_of_warp = 32;
@@ -25,7 +28,6 @@ void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, in
     
     int crt_point_id = b_id;
     int* crt_result = d_result + crt_point_id * num_of_results;
-    unsigned long long* crt_time_breakdown = time_breakdown + crt_point_id * 6;
     float q[(DIM + 31) / 32];
 #pragma unroll
     for (int i = 0; i < (DIM + 31) / 32; ++i) {
@@ -67,6 +69,13 @@ void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, in
     }
 
     __syncthreads();
+    if constexpr (collect_metrics) {
+        if (t_id == 0) {
+            atomicAdd(&metrics->stage_init, clock64() - stage_init_start);
+        }
+    }
+
+    auto stage_init_distance_computation = clock64();
 
     int target_point_id = 0;
 
@@ -173,7 +182,12 @@ void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, in
     if (t_id == 0) {
         neighbors_array[0].first = dist;
     }
-
+    if constexpr (collect_metrics) {
+        if (t_id == 0) {
+            atomicAdd(&metrics->stage_init_distance_computation, clock64() - stage_init_distance_computation);
+            atomicAdd(&metrics->distance_computation_counter, 1);
+        }
+    }
    	
     while (flag_all_blocks) {
 
@@ -193,8 +207,10 @@ void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, in
             }
         }
         auto stage2_end = clock64();
-        if(t_id == 0){
-            crt_time_breakdown[1] += stage2_end - stage2_start;
+        if constexpr (collect_metrics) {
+            if(t_id == 0){
+                atomicAdd(&metrics->stage_2, stage2_end - stage2_start);
+            }
         }
 
         auto stage3_start = clock64();
@@ -309,12 +325,18 @@ void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, in
                 
                 if (t_id == 0) {
                     neighbors_array[num_of_candidates+i].first = dist;
+
+                    if constexpr (collect_metrics) {
+                        atomicAdd(&metrics->distance_computation_counter, 1);
+                    }
                 }
 
         }
         auto stage3_end = clock64();
-        if(t_id == 0){
-            crt_time_breakdown[2] += stage3_end - stage3_start;
+        if constexpr (collect_metrics) {
+            if(t_id == 0){
+                atomicAdd(&metrics->stage_3_distance_computation, stage3_end - stage3_start);
+            }
         }
 
         auto stage4_start = clock64();
@@ -360,8 +382,11 @@ for (int temparory_id = 0; temparory_id < (num_of_visited_points_one_batch + siz
 }
 
         auto stage4_end = clock64();
-        if(t_id == 0){
-            crt_time_breakdown[3] += stage4_end - stage4_start;
+        if constexpr (collect_metrics) {
+            if(t_id == 0){
+                // crt_time_breakdown[3] += stage4_end - stage4_start;
+                atomicAdd(&metrics->stage_4, stage4_end - stage4_start);
+            }
         }
 
         auto stage5_start = clock64();
@@ -395,8 +420,11 @@ for (; step_id <= num_of_visited_points_one_batch / 2; step_id *= 2) {
 }
 
         auto stage5_end = clock64();
-        if(t_id == 0){
-            crt_time_breakdown[4] += stage5_end - stage5_start;
+        if constexpr (collect_metrics) {
+            if(t_id == 0){
+                // crt_time_breakdown[4] += stage5_end - stage5_start;
+                atomicAdd(&metrics->stage_5, stage5_end - stage5_start);
+            }
         }
         
         auto stage6_start = clock64();
@@ -447,8 +475,11 @@ for (; substep_id >= 1; substep_id /= 2) {
 }
 
         auto stage6_end = clock64();
-        if(t_id == 0){
-            crt_time_breakdown[5] += stage6_end - stage6_start;
+        if constexpr (collect_metrics) {
+            if(t_id == 0){
+                // crt_time_breakdown[5] += stage6_end - stage6_start;
+                atomicAdd(&metrics->stage_6, stage6_end - stage6_start);
+            }
         }
         
         auto stage1_start = clock64();
@@ -469,17 +500,26 @@ for (; substep_id >= 1; substep_id /= 2) {
             }
         }
         auto stage1_end = clock64();
-        if(t_id == 0){
-            crt_time_breakdown[0] += stage1_end - stage1_start;
+        if constexpr (collect_metrics) {
+            if(t_id == 0){
+                // crt_time_breakdown[0] += stage1_end - stage1_start;
+                atomicAdd(&metrics->stage_1, stage1_end - stage1_start);
+            }
         }
 
     }
 
+    auto stage_final = clock64();
     for (int i = 0; i < (num_of_results + size_of_warp - 1) / size_of_warp; i++) {
         int unrollt_id = t_id + size_of_warp * i;
     
         if (unrollt_id < num_of_results) {
             crt_result[unrollt_id] = neighbors_array[unrollt_id].second;
+        }
+    }
+    if constexpr (collect_metrics) {
+        if (t_id == 0) {
+            atomicAdd(&metrics->stage_final, stage_final - stage_init_start);
         }
     }
 }

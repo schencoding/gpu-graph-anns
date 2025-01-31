@@ -46,6 +46,7 @@ class cuhnsw : public algo<float>, public algo_gpu {
   using search_param_base = typename algo<float>::search_param;
   struct search_param : public search_param_base {
     int ef_search;
+    int block_dim_search;
     [[nodiscard]] auto needs_dataset() const -> bool override { return true; }
   };
 
@@ -243,7 +244,7 @@ void cuhnsw_impl::load(const std::string& file)
                 build_param_.max_m0,
                 build_param_.save_remains,
                 build_param_.ef_construction,
-                build_param_.block_dim,
+                search_param_.block_dim_search,
                 build_param_.hyper_threads,
                 build_param_.visited_table_size,
                 build_param_.visited_list_size,

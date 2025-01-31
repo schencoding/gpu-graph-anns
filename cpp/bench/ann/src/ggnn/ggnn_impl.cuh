@@ -106,7 +106,7 @@ class ggnn_impl : public algo<T>, public algo_gpu {
 
 INSTANTIATE(100);
 INSTANTIATE(128);
-INSTANTIATE(768);
+INSTANTIATE(784);
 INSTANTIATE(960);
 #undef INSTANTIATE
 }  // namespace cuvs::bench

@@ -20,6 +20,7 @@
 
 #include "song/config.h"
 #include "song/kernelgraph.h"
+#include "song/warp_astar_accelerator.h"
 #include <iostream>
 #include <memory>
 #include <random>
@@ -75,6 +76,38 @@ class song : public algo<data_value_t>, public algo_gpu {
   [[nodiscard]] auto get_preference() const -> algo_property override
   {
     return impl_->get_preference();
+  }
+
+  benchmark::UserCounters get_custom_counters() const override
+  {
+    benchmark::UserCounters counters;
+    if constexpr (cuvs::bench::collect_metrics) {
+      auto& measure                            = Measure::get_instance();
+      counters["metrics_stage_init"]           = measure.stage_init;
+      counters["metrics_stage1"]               = measure.stage1;
+      counters["metrics_stage_distance_computation"] = measure.stage_distance_computation;
+      counters["metrics_stage3"]               = measure.stage3;
+      counters["metrics_stage_final"]          = measure.stage_final;
+      counters["metrics_distance_computation_counter"] = measure.distance_computation_counter;
+      counters["metrics_queries"]              = measure.metric_queries;
+    }
+    return counters;
+  }
+
+  void print_metrics() const override
+  {
+    if constexpr (cuvs::bench::collect_metrics) {
+      auto& measure = Measure::get_instance();
+      measure.print_metrics();
+    }
+  }
+
+  void reset_metrics() override
+  {
+    if constexpr (cuvs::bench::collect_metrics) {
+      auto& measure = Measure::get_instance();
+      measure.reset();
+    }
   }
 
  private:
@@ -158,6 +191,10 @@ template <Metric metric>
 void song::make_impl(int dim, const build_param& param)
 {
   switch (dim) {
+    case 96:
+      impl_ =
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 96>>(metric, dim, param);
+      break;
     case 100:
       impl_ =
         std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 100>>(metric, dim, param);
@@ -170,9 +207,9 @@ void song::make_impl(int dim, const build_param& param)
       impl_ =
         std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 256>>(metric, dim, param);
       break;
-    case 768:
+    case 784:
       impl_ =
-        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 768>>(metric, dim, param);
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 784>>(metric, dim, param);
       break;
     case 960:
       impl_ =

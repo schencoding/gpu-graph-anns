@@ -49,6 +49,8 @@ def convert_hdf5_to_fbin(path, normalize):
 def move(name, ann_bench_data_path):
     if "angular" in name:
         new_name = name.replace("angular", "inner")
+    elif "dot" in name:
+        new_name = name.replace("dot", "inner")
     else:
         new_name = name
     new_path = os.path.join(ann_bench_data_path, new_name)

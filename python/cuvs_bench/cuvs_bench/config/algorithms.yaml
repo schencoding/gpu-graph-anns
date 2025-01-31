@@ -61,6 +61,9 @@ cuhnsw_v2:
 hnswlib:
   executable: HNSWLIB_ANN_BENCH
   requires_gpu: false
+hnswlib_32c:
+  executable: HNSWLIB_ANN_BENCH
+  requires_gpu: false
 cuvs_cagra_hnswlib:
   executable: CUVS_CAGRA_HNSWLIB_ANN_BENCH
   requires_gpu: true
