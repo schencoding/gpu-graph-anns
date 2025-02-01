@@ -172,9 +172,13 @@ public:
 		cudaMalloc(&d_graph, sizeof(int) * (prefix_sum_of_num_array_of_each_layer[0] + num_of_points_on_each_layer[0]) * num_of_final_neighbors);
 		cudaMemcpy(d_graph, h_graph, sizeof(int) * (prefix_sum_of_num_array_of_each_layer[0] + num_of_points_on_each_layer[0]) * num_of_final_neighbors, cudaMemcpyHostToDevice);
 
-		SearchDevice<metric_type, DIM><<<num_of_query_points, 32, (num_of_final_neighbors + num_of_candidates) * (sizeof(KernelPair<float, int>) + sizeof(int))>>>(d_data, d_query, d_result, d_graph, total_num_of_points, 
+    ganns::Metrics* metrics = nullptr;
+    cudaMallocManaged(&metrics, sizeof(ganns::Metrics));
+    metrics->reset();
+
+		SearchDevice<metric_type, DIM, collect_metrics><<<num_of_query_points, 32, (num_of_final_neighbors + num_of_candidates) * (sizeof(KernelPair<float, int>) + sizeof(int))>>>(d_data, d_query, d_result, d_graph, total_num_of_points, 
 																															num_of_query_points, num_of_final_neighbors, num_of_candidates, 
-																															num_of_topk, num_of_explored_points, num_of_layers, d_prefix_sum_of_num_array_of_each_layer);
+																															num_of_topk, num_of_explored_points, num_of_layers, d_prefix_sum_of_num_array_of_each_layer, metrics);
 
     auto err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -189,10 +193,17 @@ public:
       exit(1);
     }
 		cudaMemcpy(h_result, d_result, sizeof(int) * num_of_query_points * num_of_topk, cudaMemcpyDeviceToHost);
+
+    if constexpr (collect_metrics) {
+      metrics->metric_queries = num_of_query_points;
+      std::cout << "accumulating metrics" << std::endl;
+      ganns::Metrics::get_instance().accumulate(*metrics);
+    }
     cudaFree(d_data);
     cudaFree(d_query);
     cudaFree(d_result);
     cudaFree(d_prefix_sum_of_num_array_of_each_layer);
     cudaFree(d_graph);
+    cudaFree(metrics);
 	}
 };

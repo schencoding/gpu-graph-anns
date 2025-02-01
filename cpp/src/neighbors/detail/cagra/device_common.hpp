@@ -123,6 +123,9 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
   const auto compute_distance = dataset_desc.compute_distance_impl;
 
   for (uint32_t i = threadIdx.x >> team_size_bits; i < max_i; i += (blockDim.x >> team_size_bits)) {
+#ifdef _CLK_BREAKDOWN
+    uint64_t clk_1st_distance_start = clock64();
+#endif
     const bool valid_i = (i < num_pickup);
 
     IndexT best_index_team_local    = raft::upper_bound<IndexT>();
@@ -148,6 +151,15 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
       }
     }
 
+#ifdef _CLK_BREAKDOWN
+    uint64_t clk_1st_distance_end = clock64();
+    if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
+        ((blockIdx.y * 3) % gridDim.y < 3)) {
+      atomicAdd(&metrics->clk_compute_1st_distance, clk_1st_distance_end - clk_1st_distance_start);
+    }
+    uint64_t clk_hash_insert_begin = clock64();
+#endif
+
     const unsigned lane_id = threadIdx.x & ((1u << team_size_bits) - 1u);
     if (valid_i && lane_id == 0) {
       if (best_index_team_local != raft::upper_bound<IndexT>() &&
@@ -158,13 +170,20 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
         result_distances_ptr[i] = raft::upper_bound<DistanceT>();
         result_indices_ptr[i]   = raft::upper_bound<IndexT>();
       }
+    }
 #ifdef _GRAPH_QUALITY_ANALYSIS
+    uint64_t clk_hash_insert_end = clock64();
+    if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
+        ((blockIdx.y * 3) % gridDim.y < 3)) {
+      atomicAdd(&metrics->clk_insert_hashmap, clk_hash_insert_end - clk_hash_insert_begin);
+    }
+    if (valid_i && lane_id == 0) {
       if (blockIdx.x == 0) {  // local CTA ID
         atomicAdd(&metrics->global_distance_calculation_counter1, 1UL);
         atomicAdd(local_distance_calculation_counter1, 1UL);
       }
-#endif
     }
+#endif
   }
 #ifdef _GRAPH_QUALITY_ANALYSIS
   if (threadIdx.x == 0 && blockIdx.x == 0) {  // local CTA ID

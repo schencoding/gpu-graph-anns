@@ -78,6 +78,11 @@ class CuHNSW {
             enum DIST_TYPE dist_type,
             bool reverse_cand,
             int log_level);
+  void SetBlockDim(int block_dim, int hyper_threads) {
+    block_dim_ = block_dim;
+    hyper_threads_ = hyper_threads;
+    block_cnt_ = hyper_threads_ * (cores_ / block_dim_);
+  }
   void SetData(const float* data, int num_data, int num_dims);
   void SetRandomLevels(const int* levels);
   void BuildGraph();

@@ -13,6 +13,9 @@ __global__ void GetEntryPointsKernel(
   const int num_dims, const int num_qnodes, const int num_target_nodes, const int max_m, const int dist_type,
   const int* graph, const int* deg,
   bool* visited, int* visited_list, const int visited_list_size, int* entries, int64_t* acc_visited_cnt
+#ifdef _CLK_BREAKDOWN
+  , Statistics* statistics
+#endif
   ) {
 
   static __shared__ int visited_cnt;
@@ -34,6 +37,11 @@ __global__ void GetEntryPointsKernel(
       //   printf("srcid: %d, dstid: %d, dist: %f\n", 
       //       qnodes[i], target_nodes[entryid], entry_dist);
       // }
+#ifdef _CLK_BREAKDOWN
+      if (threadIdx.x == 0) {
+        atomicAdd(&statistics->distance_computation_counter_upper_layers, 1);
+      }
+#endif
     }
     __syncthreads();
     bool updated = true;
@@ -54,6 +62,11 @@ __global__ void GetEntryPointsKernel(
         __syncthreads();
         const cuda_scalar* dst_vec = target_data + num_dims * target_nodes[candid];
         cuda_scalar dist = GetDistanceByVec(src_vec, dst_vec, num_dims, dist_type);
+#ifdef _CLK_BREAKDOWN
+        if (threadIdx.x == 0) {
+          atomicAdd(&statistics->distance_computation_counter_upper_layers, 1);
+        }
+#endif
         if (dist < entry_dist) {
           entry_dist = dist;
           entryid = candid;
@@ -84,6 +97,9 @@ __global__ void SearchGraphKernel(
   int* visited_table, int* visited_list, 
   const int visited_table_size, const int visited_list_size, int64_t* acc_visited_cnt,
   const bool reverse_cand, Neighbor* neighbors, int* global_cand_nodes, cuda_scalar* global_cand_distances
+#ifdef _CLK_BREAKDOWN
+  , Statistics* statistics
+#endif
   ) {
 
   static __shared__ int size;
@@ -106,14 +122,32 @@ __global__ void SearchGraphKernel(
     // initialize entries
     const cuda_scalar* src_vec = qdata + i * num_dims;
     PushNodeToSearchPq(ef_search_pq, &size, ef_search, data, 
-        num_dims, dist_type, src_vec, entries[i]);
+        num_dims, dist_type, src_vec, entries[i]
+#ifdef _CLK_BREAKDOWN
+        , statistics
+#endif
+        );
+#ifdef _CLK_BREAKDOWN
+    auto clk_check_visited_start = clock64();
+#endif
     if (CheckVisited(_visited_table, _visited_list, visited_cnt, entries[i], 
           visited_table_size, visited_list_size)) 
       continue;
     __syncthreads();
     
+#ifdef _CLK_BREAKDOWN
+    auto clk_check_visited_end = clock64();
+    if (threadIdx.x == 0)
+      atomicAdd(&statistics->clk_check_visited_table, clk_check_visited_end - clk_check_visited_start);
+    auto clk_get_candidates_start = clock64();
+#endif
     // iterate until converge
     int idx = GetCand(ef_search_pq, size, reverse_cand);
+#ifdef _CLK_BREAKDOWN
+    auto clk_get_candidates_end = clock64();
+    if (threadIdx.x == 0)
+      atomicAdd(&statistics->clk_get_candidates, clk_get_candidates_end - clk_get_candidates_start);
+#endif
     while (idx >= 0) {
       __syncthreads();
       if (threadIdx.x == 0) ef_search_pq[idx].checked = true;
@@ -121,23 +155,52 @@ __global__ void SearchGraphKernel(
       __syncthreads();
 
       for (int j = max_m * entry; j < max_m * entry + deg[entry]; ++j) {
+#ifdef _CLK_BREAKDOWN
+        auto clk_check_visited_start = clock64();
+#endif
         int dstid = graph[j];
 
         if (CheckVisited(_visited_table, _visited_list, visited_cnt, dstid, 
               visited_table_size, visited_list_size)) 
           continue;
         __syncthreads();
-
+#ifdef _CLK_BREAKDOWN
+        auto clk_check_visited_end = clock64();
+        if (threadIdx.x == 0)
+          atomicAdd(&statistics->clk_check_visited_table, clk_check_visited_end - clk_check_visited_start);
+        auto clk_distance_computation_start = clock64();
+#endif
         const cuda_scalar* dst_vec = data + num_dims * dstid;
         cuda_scalar dist = GetDistanceByVec(src_vec, dst_vec, num_dims, dist_type);
-
+#ifdef _CLK_BREAKDOWN
+        auto clk_distance_computation_end = clock64();
+        if (threadIdx.x == 0) {
+          atomicAdd(&statistics->clk_distance_computation, clk_distance_computation_end - clk_distance_computation_start);
+          atomicAdd(&statistics->distance_computation_counter, 1);
+        }
+#endif
         PushNodeToSearchPq(ef_search_pq, &size, ef_search,
-            data, num_dims, dist_type, src_vec, dstid);
+            data, num_dims, dist_type, src_vec, dstid
+#ifdef _CLK_BREAKDOWN
+            , statistics
+#endif
+            );
       }
       __syncthreads();
+#ifdef _CLK_BREAKDOWN
+      auto clk_get_candidates_start = clock64();
+#endif
       idx = GetCand(ef_search_pq, size, reverse_cand);
+#ifdef _CLK_BREAKDOWN
+      auto clk_get_candidates_end = clock64();
+      if (threadIdx.x == 0)
+        atomicAdd(&statistics->clk_get_candidates, clk_get_candidates_end - clk_get_candidates_start);
+#endif
     }
     __syncthreads();
+#ifdef _CLK_BREAKDOWN
+    auto clk_final_start = clock64();
+#endif
     if (threadIdx.x == 0) {
       acc_visited_cnt[blockIdx.x] += visited_cnt;
     }
@@ -161,6 +224,11 @@ __global__ void SearchGraphKernel(
       }
     }
     __syncthreads();
+#ifdef _CLK_BREAKDOWN
+    auto clk_final_end = clock64();
+    if (threadIdx.x == 0)
+      atomicAdd(&statistics->clk_final, clk_final_end - clk_final_start);
+#endif
   }
 }
 

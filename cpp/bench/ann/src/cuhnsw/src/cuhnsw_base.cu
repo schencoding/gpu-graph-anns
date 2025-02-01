@@ -86,8 +86,7 @@ bool CuHNSW::Init(int max_m,
   ef_construction_    = ef_construction;
   // level_mult_         = level_mult;
   // batch_size_         = batch_size;
-  block_dim_          = block_dim;
-  hyper_threads_      = hyper_threads;
+  SetBlockDim(block_dim, hyper_threads);
   visited_table_size_ = visited_table_size;
   visited_list_size_  = visited_list_size;
   if (not visited_table_size_) visited_table_size_ = visited_list_size_ * 2;
@@ -150,10 +149,6 @@ bool CuHNSW::Init(int max_m,
 void CuHNSW::SetData(const float* data, int num_data, int num_dims) {
   num_data_ = num_data;
   num_dims_ = num_dims;
-  // block_cnt_ = opt_["hyper_threads"].number_value() * (cores_ / block_dim_);
-  block_cnt_ = hyper_threads_ * (cores_ / block_dim_);
-  DEBUG("copy data ({} x {}), block_cnt: {}, block_dim: {}",
-      num_data, num_dims, block_cnt_, block_dim_);
   device_data_.resize(num_data * num_dims);
   #ifdef HALF_PRECISION
     // DEBUG0("fp16")

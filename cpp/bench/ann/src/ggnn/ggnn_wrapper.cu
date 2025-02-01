@@ -1,9 +1,43 @@
+#include "ggnn/statistics.h"
 #include "ggnn_impl.cuh"
 #include "ggnn_wrapper.cuh"
 
 namespace cuvs::bench {
 
-  template <typename T>
+template <typename T>
+benchmark::UserCounters ggnn<T>::get_custom_counters() const
+{
+  benchmark::UserCounters counters;
+  if constexpr (cuvs::bench::collect_metrics) {
+    auto& statistics = GGNNStatistics::getInstance();
+
+    counters["metrics_clk_init"]                 = statistics.clk_init;
+    counters["metrics_clk_pop"]                  = statistics.clk_pop;
+    counters["metrics_clk_distance_computation"] = statistics.clk_distance_computation;
+    counters["metrics_clk_distance_computation_load_keys_start"] =
+      statistics.clk_distance_computation_load_keys_start;
+
+    counters["metrics_clk_push"]                     = statistics.clk_push;
+    counters["metrics_clk_final"]                    = statistics.clk_final;
+    counters["metrics_distance_computation_counter"] = statistics.distance_computation_counter;
+    counters["metrics_num_queries"]                  = statistics.num_queries;
+  }
+  return counters;
+}
+
+template <typename T>
+void ggnn<T>::print_metrics() const
+{
+  if constexpr (cuvs::bench::collect_metrics) { GGNNStatistics::getInstance().print(); }
+}
+
+template <typename T>
+void ggnn<T>::reset_metrics()
+{
+  if constexpr (cuvs::bench::collect_metrics) { GGNNStatistics::getInstance().reset(); }
+}
+
+template <typename T>
 template <int DIM>
 void ggnn<T>::create_impl(Metric metric, int dim, const build_param& param)
 {

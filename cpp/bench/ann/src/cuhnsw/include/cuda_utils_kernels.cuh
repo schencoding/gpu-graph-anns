@@ -7,7 +7,7 @@
 #include "cuda_base_kernels.cuh"
 #include "cuda_dist_kernels.cuh"
 #include "cuda_heap_kernels.cuh"
-
+#include "cuhnsw_statistics.hpp"
 
 namespace cuhnsw {
 
@@ -212,11 +212,32 @@ bool CheckVisited(int* visited_table, int* visited_list, int& visited_cnt, int t
 __inline__ __device__
 void PushNodeToSearchPq(Neighbor* pq, int* size, const int max_size,
     const cuda_scalar* data, const int num_dims, const int dist_type,
-    const cuda_scalar* src_vec, const int dstid) {
+    const cuda_scalar* src_vec, const int dstid
+#ifdef _CLK_BREAKDOWN
+    , Statistics* statistics
+#endif
+    ) {
+#ifdef _CLK_BREAKDOWN
+  auto clk_check_queue_start = clock64();
+#endif
   if (CheckAlreadyExists(pq, *size, dstid)) return;
+#ifdef _CLK_BREAKDOWN
+  auto clk_check_queue_end = clock64();
+  if (threadIdx.x == 0)
+    atomicAdd(&statistics->clk_check_queue, clk_check_queue_end - clk_check_queue_start);
+  auto clk_distance_computation_start = clock64();
+#endif
   const cuda_scalar* dst_vec = data + num_dims * dstid;
   cuda_scalar dist = GetDistanceByVec(src_vec, dst_vec, num_dims, dist_type);
   __syncthreads();
+#ifdef _CLK_BREAKDOWN
+  auto clk_distance_computation_end = clock64();
+  if (threadIdx.x == 0) {
+    atomicAdd(&statistics->clk_distance_computation, clk_distance_computation_end - clk_distance_computation_start);
+    atomicAdd(&statistics->distance_computation_counter, 1);
+  }
+  auto clk_update_priority_queue_start = clock64();
+#endif
   if (*size < max_size) {
     PqPush(pq, size, dist, dstid, false);
   } else if (gt(pq[0].distance, dist)) {
@@ -224,6 +245,11 @@ void PushNodeToSearchPq(Neighbor* pq, int* size, const int max_size,
     PqPush(pq, size, dist, dstid, false);
   }
   __syncthreads();
+#ifdef _CLK_BREAKDOWN
+  auto clk_update_priority_queue_end = clock64();
+  if (threadIdx.x == 0)
+    atomicAdd(&statistics->clk_update_priority_queue, clk_update_priority_queue_end - clk_update_priority_queue_start);
+#endif
 }
 
 

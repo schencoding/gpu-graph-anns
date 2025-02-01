@@ -66,7 +66,10 @@ void CuHNSW::GetEntryPoints(const std::vector<int>& nodes,
   thrust::device_vector<int> dev_visited_list(visited_list_size_ * block_cnt_);
   thrust::device_vector<int64_t> dev_acc_visited_cnt(block_cnt_, 0);
   thrust::device_vector<cuda_scalar>& qdata = search ? device_qdata_ : device_data_;
-
+  Statistics* statistics = nullptr;
+#ifdef _CLK_BREAKDOWN
+  cudaMallocManaged(&statistics, sizeof(Statistics));
+#endif
   // run kernel
   GetEntryPointsKernel<<<block_cnt_, block_dim_>>>(
     thrust::raw_pointer_cast(qdata.data()),
@@ -84,7 +87,11 @@ void CuHNSW::GetEntryPoints(const std::vector<int>& nodes,
     thrust::raw_pointer_cast(dev_visited_list.data()),
     visited_list_size_,
     thrust::raw_pointer_cast(dev_entries.data()),
-    thrust::raw_pointer_cast(dev_acc_visited_cnt.data()));
+    thrust::raw_pointer_cast(dev_acc_visited_cnt.data())
+#ifdef _CLK_BREAKDOWN
+    , statistics
+#endif
+    );
   CHECK_CUDA(cudaDeviceSynchronize());
   // el_[GPU] += sw_[GPU].CheckPoint();
   thrust::copy(dev_entries.begin(), dev_entries.end(), entries.begin());
@@ -98,6 +105,10 @@ void CuHNSW::GetEntryPoints(const std::vector<int>& nodes,
   for (int i = 0; i < size; ++i) {
     entries[i] = upper_nodes[entries[i]];
   }
+#ifdef _CLK_BREAKDOWN
+  Statistics::GetInstance().accumulate(*statistics);
+  cudaFree(statistics);
+#endif
 }
 
 void CuHNSW::BuildGraph()
@@ -229,10 +240,6 @@ void CuHNSW::SearchGraph(const float* qdata,
                          float* distances,
                          int* found_cnt)
 {
-#ifdef _CLK_BREAKDOWN
-  const auto search_graph_start = std::chrono::high_resolution_clock::now();
-#endif
-
   device_qdata_.resize(num_queries * num_dims_);
 #ifdef HALF_PRECISION
   std::vector<cuda_scalar> hdata(num_queries * num_dims_);
@@ -276,6 +283,9 @@ void CuHNSW::SearchGraph(const float* qdata,
   int* global_cand_nodes_ptr             = thrust::raw_pointer_cast(device_cand_nodes.data());
   cuda_scalar* global_cand_distances_ptr = thrust::raw_pointer_cast(device_cand_distances.data());
 
+  Statistics* statistics = nullptr;
+  cudaMallocManaged(&statistics, sizeof(Statistics));
+  statistics->reset();
   thrust::copy(graph_vec.begin(), graph_vec.end(), device_graph.begin());
   thrust::copy(deg.begin(), deg.end(), device_deg.begin());
   thrust::copy(entries.begin(), entries.end(), device_entries.begin());
@@ -303,7 +313,11 @@ void CuHNSW::SearchGraph(const float* qdata,
     reverse_cand_,
     thrust::raw_pointer_cast(device_neighbors.data()),
     global_cand_nodes_ptr,
-    global_cand_distances_ptr);
+    global_cand_distances_ptr
+#ifdef _CLK_BREAKDOWN
+    , statistics
+#endif
+      );
   CHECK_CUDA(cudaGetLastError());
   CHECK_CUDA(cudaDeviceSynchronize());
   std::vector<int64_t> acc_visited_cnt(block_cnt_);
@@ -321,6 +335,11 @@ void CuHNSW::SearchGraph(const float* qdata,
 
   device_qdata_.clear();
   device_qdata_.shrink_to_fit();
+#ifdef _CLK_BREAKDOWN
+  statistics->num_queries = num_queries;
+  Statistics::GetInstance().accumulate(*statistics);
+  cudaFree(statistics);
+#endif
 }
 
 #undef _CLK_BREAKDOWN

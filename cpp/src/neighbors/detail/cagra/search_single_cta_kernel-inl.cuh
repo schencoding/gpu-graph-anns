@@ -565,7 +565,7 @@ __device__ void search_core(
 
 #ifdef _CLK_BREAKDOWN
   std::uint64_t clk_init                 = 0;
-  std::uint64_t clk_compute_1st_distance = 0;
+  // std::uint64_t clk_compute_1st_distance = 0;
   std::uint64_t clk_topk                 = 0;
   std::uint64_t clk_reset_hash           = 0;
   std::uint64_t clk_pickup_parents       = 0;
@@ -648,7 +648,7 @@ __device__ void search_core(
 #endif
   );
   __syncthreads();
-  _CLK_REC(clk_compute_1st_distance);
+  // _CLK_REC(clk_compute_1st_distance);
 
   std::uint32_t iter = 0;
   while (1) {
@@ -954,7 +954,7 @@ __device__ void search_core(
   //     clk_restore_hash,
   //     clk_compute_distance);
     atomicAdd(&cagra_metrics->clk_init, clk_init);
-    atomicAdd(&cagra_metrics->clk_compute_1st_distance, clk_compute_1st_distance);
+    // atomicAdd(&cagra_metrics->clk_compute_1st_distance, clk_compute_1st_distance);
     atomicAdd(&cagra_metrics->clk_topk, clk_topk);
     atomicAdd(&cagra_metrics->clk_reset_hash, clk_reset_hash);
     atomicAdd(&cagra_metrics->clk_pickup_parents, clk_pickup_parents);

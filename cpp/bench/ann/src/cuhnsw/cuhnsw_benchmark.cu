@@ -46,6 +46,7 @@ void parse_search_param(const nlohmann::json& conf,
 {
   param.ef_search = conf.at("ef_search");
   param.block_dim_search = conf.at("block_dim_search");
+  param.hyper_threads_search = conf.at("hyper_threads_search");
 }
 
 template <typename T, class Algo>

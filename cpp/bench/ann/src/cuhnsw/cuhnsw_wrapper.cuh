@@ -17,7 +17,7 @@
 
 #include "../common/ann_types.hpp"
 #include "../common/util.hpp"
-
+#include "cuhnsw_statistics.hpp"
 #include "cuhnsw.hpp"
 #include <memory>
 #include <random>
@@ -47,6 +47,7 @@ class cuhnsw : public algo<float>, public algo_gpu {
   struct search_param : public search_param_base {
     int ef_search;
     int block_dim_search;
+    int hyper_threads_search;
     [[nodiscard]] auto needs_dataset() const -> bool override { return true; }
   };
 
@@ -83,6 +84,40 @@ class cuhnsw : public algo<float>, public algo_gpu {
     impl_->set_search_dataset(dataset, nrow);
   };
 
+  benchmark::UserCounters get_custom_counters() const override
+  {
+    benchmark::UserCounters counters;
+    if constexpr (cuvs::bench::collect_metrics) {
+      auto& statistics = ::cuhnsw::Statistics::GetInstance();
+
+     counters["metrics_distance_computation_counter"] = statistics.distance_computation_counter;
+     counters["metrics_distance_computation_counter_upper_layers"] = statistics.distance_computation_counter_upper_layers;
+     counters["metrics_num_queries"]                  = statistics.num_queries;
+     counters["metrics_clk_check_queue"]               = statistics.clk_check_queue;
+     counters["metrics_clk_distance_computation"]      = statistics.clk_distance_computation;
+     counters["metrics_clk_update_priority_queue"]     = statistics.clk_update_priority_queue;
+     counters["metrics_clk_check_visited_table"]       = statistics.clk_check_visited_table;
+     counters["metrics_clk_get_candidates"]            = statistics.clk_get_candidates;
+     counters["metrics_clk_final"]                     = statistics.clk_final;
+    }
+    return counters;
+  }
+
+  void print_metrics() const override
+  {
+    if constexpr (cuvs::bench::collect_metrics) {
+      auto& statistics = ::cuhnsw::Statistics::GetInstance();
+      statistics.print();
+    }
+  }
+
+  void reset_metrics() override
+  {
+    if constexpr (cuvs::bench::collect_metrics) {
+      auto& statistics = ::cuhnsw::Statistics::GetInstance();
+      statistics.reset();
+    }
+  }
  private:
   std::shared_ptr<algo<float>> impl_;
 };
@@ -214,6 +249,7 @@ void cuhnsw_impl::set_search_dataset(const float* dataset, size_t nrow)
 void cuhnsw_impl::set_search_param(const search_param_base& param)
 {
   search_param_ = dynamic_cast<const typename cuhnsw::search_param&>(param);
+  cuhnsw_->SetBlockDim(search_param_.block_dim_search, search_param_.hyper_threads_search);
 }
 
 void cuhnsw_impl::search(const float* queries,
@@ -244,7 +280,7 @@ void cuhnsw_impl::load(const std::string& file)
                 build_param_.max_m0,
                 build_param_.save_remains,
                 build_param_.ef_construction,
-                search_param_.block_dim_search,
+                build_param_.block_dim,
                 build_param_.hyper_threads,
                 build_param_.visited_table_size,
                 build_param_.visited_list_size,

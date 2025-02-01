@@ -1,3 +1,187 @@
+diff --git a/include/ggnn/cache/cuda_simple_knn_cache.cuh b/include/ggnn/cache/cuda_simple_knn_cache.cuh
+index 6ef495a..0ee9868 100644
+--- a/include/ggnn/cache/cuda_simple_knn_cache.cuh
++++ b/include/ggnn/cache/cuda_simple_knn_cache.cuh
+@@ -23,13 +23,13 @@ limitations under the License.
+ #include <cub/cub.cuh>
+ #include <limits>
+ 
++#include "ggnn/statistics.h"
+ #include "ggnn/utils/cuda_knn_distance.cuh"
+ #include "ggnn/utils/cuda_knn_utils.cuh"
+ 
+-template <DistanceMeasure measure,
+-          typename ValueT, typename KeyT, int KQuery, int D, int BLOCK_DIM_X,
+-          int VISITED_SIZE = 256, int PRIOQ_SIZE = 128, int BEST_SIZE = 32,
+-          typename BaseT = ValueT, typename BAddrT = KeyT,
++template <DistanceMeasure measure, typename ValueT, typename KeyT, int KQuery,
++          int D, int BLOCK_DIM_X, int VISITED_SIZE = 256, int PRIOQ_SIZE = 128,
++          int BEST_SIZE = 32, typename BaseT = ValueT, typename BAddrT = KeyT,
+           bool DIST_STATS = false, bool OVERFLOW_STATS = false>
+ struct SimpleKNNCache {
+   static constexpr KeyT EMPTY_KEY = (KeyT)-1;
+@@ -52,7 +52,8 @@ struct SimpleKNNCache {
+ 
+   static constexpr int BEST_END = BEST_SIZE - 1;
+ 
+-  typedef Distance<measure, ValueT, KeyT, D, BLOCK_DIM_X, BaseT, BAddrT> Distance;
++  typedef Distance<measure, ValueT, KeyT, D, BLOCK_DIM_X, BaseT, BAddrT>
++      Distance;
+ 
+   union SyncTempStorage {
+     KeyT cache;
+@@ -72,8 +73,9 @@ struct SimpleKNNCache {
+ 
+   Distance rs_dist_calc;
+ 
+-  //# threadIdx.x == 0 stats registers only
++  // # threadIdx.x == 0 stats registers only
+   int dist_calc_counter;
++  GGNNStatistics* d_ggnn_stats = nullptr;
+ 
+   __device__ __forceinline__ void initSharedStorage() {
+     __shared__ KeyT s_cache_tmp[CACHE_SIZE];
+@@ -131,6 +133,8 @@ struct SimpleKNNCache {
+     init();
+   }
+ 
++  __device__ void set_stats(GGNNStatistics* stats) { d_ggnn_stats = stats; }
++
+   __device__ __forceinline__ SimpleKNNCache(const BaseT* d_base,
+                                             const BaseT* d_query, const KeyT n,
+                                             const ValueT xi_criteria)
+@@ -139,7 +143,7 @@ struct SimpleKNNCache {
+         s_visited_head(CacheRingPrivateTmpStorage()),
+         s_overflow_counter(OverflowPrivateTmpStorage()),
+         s_sync(SyncPrivateTmpStorage()),
+-        rs_dist_calc(d_base, d_query, n){
++        rs_dist_calc(d_base, d_query, n) {
+     initSharedStorage();
+     init();
+   }
+@@ -193,8 +197,8 @@ struct SimpleKNNCache {
+           const ValueT dist_prev =
+               ((idx_prev == -1) || (idx_prev == BEST_SIZE + s_prioQ_head - 1))
+                   ? -1.f
+-                  : (idx_prev == BEST_END) ? s_dists[SORTED_SIZE - 1]
+-                                           : s_dists[idx_prev];
++              : (idx_prev == BEST_END) ? s_dists[SORTED_SIZE - 1]
++                                       : s_dists[idx_prev];
+           if (dist_prev < dist) {
+             if (idx < BEST_SIZE)
+               r_write_item_best = item;
+@@ -251,6 +255,7 @@ struct SimpleKNNCache {
+   __device__ __forceinline__ void fetch(KeyT* s_keys, const KeyT* d_translation,
+                                         int len) {
+     __syncthreads();
++    auto clk_distance_computation_load_keys_start = clock64();
+     for (int item = 0; item < CACHE_ITEMS_PER_THREAD; ++item) {
+       const int i = item * BLOCK_DIM_X + threadIdx.x;
+       if (i < CACHE_SIZE) {
+@@ -262,22 +267,52 @@ struct SimpleKNNCache {
+         }
+       }
+     }
++    if constexpr (DIST_STATS) {
++      if (!threadIdx.x&& d_ggnn_stats != nullptr) {
++        atomicAdd(&d_ggnn_stats->clk_distance_computation_load_keys_start,
++                  clock64() - clk_distance_computation_load_keys_start);
++      }
++    }
+ 
+     for (int k = 0; k < len; k++) {
+       __syncthreads();
++
++      long long clk_distance_computation_start = 0LL;
++      if constexpr (DIST_STATS) {
++        clk_distance_computation_start = clock64();
++      }
++
+       const KeyT other_n = s_keys[k];
+       if (other_n == EMPTY_KEY) continue;
+       const KeyT other_m =
+           (d_translation == nullptr) ? other_n : d_translation[other_n];
+       const ValueT dist = rs_dist_calc.distance_synced(other_m);
+ 
++      if constexpr (DIST_STATS) {
++        if (!threadIdx.x&& d_ggnn_stats != nullptr) {
++          atomicAdd(&d_ggnn_stats->clk_distance_computation,
++                    clock64() - clk_distance_computation_start);
++        }
++      }
++      auto clk_push_start = clock64();
++
+       if (criteria(dist)) {
+         push(other_n, dist);
+         __syncthreads();
+       }
+ 
++      if constexpr (DIST_STATS) {
++        if (!threadIdx.x && d_ggnn_stats != nullptr) {
++          atomicAdd(&d_ggnn_stats->clk_push, clock64() - clk_push_start);
++        }
++      }
+     }
+     __syncthreads();
++    if constexpr (DIST_STATS) {
++      if (!threadIdx.x && d_ggnn_stats != nullptr) {
++        atomicAdd(&d_ggnn_stats->distance_computation_counter, len);
++      }
++    }
+   }
+ 
+   __device__ __forceinline__ void transform(const KeyT* transform) {
+@@ -287,24 +322,20 @@ struct SimpleKNNCache {
+       if (i < BEST_SIZE) {
+         // transform best
+         KeyT key = s_cache[i];
+-        if (key != EMPTY_KEY)
+-          key = transform[key];
++        if (key != EMPTY_KEY) key = transform[key];
+         s_cache[i] = key;
+ 
+         // copy best into prio queue
+-        if (i+BEST_SIZE < SORTED_SIZE) {
+-          s_cache[i+BEST_SIZE] = key;
+-          s_dists[i+BEST_SIZE] = s_dists[i];
++        if (i + BEST_SIZE < SORTED_SIZE) {
++          s_cache[i + BEST_SIZE] = key;
++          s_dists[i + BEST_SIZE] = s_dists[i];
+         }
+-      }
+-      else if (i < 2*BEST_SIZE && i < SORTED_SIZE) {
++      } else if (i < 2 * BEST_SIZE && i < SORTED_SIZE) {
+         // do nothing (handled by previous threads)
+-      }
+-      else if (i < CACHE_SIZE) {
++      } else if (i < CACHE_SIZE) {
+         // reset remainder of the prio queue and visited cache
+         s_cache[i] = EMPTY_KEY;
+-        if (i < SORTED_SIZE)
+-          s_dists[i] = EMPTY_DIST;
++        if (i < SORTED_SIZE) s_dists[i] = EMPTY_DIST;
+       }
+     }
+ 
+@@ -339,12 +370,16 @@ struct SimpleKNNCache {
+     }
+   }
+ 
+-  template <DistanceMeasure m = measure, typename std::enable_if<m == Euclidean, int>::type = 0> // euclidean distance version
++  template <DistanceMeasure m = measure,
++            typename std::enable_if<m == Euclidean, int>::type =
++                0>  // euclidean distance version
+   __device__ __forceinline__ float get_nn1_dist() {
+     return sqrtf(s_dists[1]);
+   }
+ 
+-  template <DistanceMeasure m = measure, typename std::enable_if<m == Cosine, int>::type = 0> // cosine similarity version
++  template <DistanceMeasure m = measure,
++            typename std::enable_if<m == Cosine, int>::type =
++                0>  // cosine similarity version
+   __device__ __forceinline__ float get_nn1_dist() {
+     return s_dists[1];
+   }
 diff --git a/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh b/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
 index 890420e..d792903 100644
 --- a/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
@@ -22,18 +206,20 @@ index 890420e..d792903 100644
  
   public:
 diff --git a/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh b/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh
-index 8cbaf0d..6eb72ac 100644
+index 8cbaf0d..9180025 100644
 --- a/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh
 +++ b/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh
-@@ -41,7 +41,6 @@ limitations under the License.
+@@ -41,7 +41,8 @@ limitations under the License.
  #include "ggnn/sym/cuda_knn_sym_query_layer.cuh"
  #include "ggnn/utils/cuda_knn_utils.cuh"
  #include "ggnn/utils/cuda_knn_constants.cuh"
 -#include "ggnn/utils/cuda_knn_dataset.cuh"
++
++#include "ggnn/statistics.h"
  
  template <typename ValueT>
  __global__ void divide(ValueT* res, ValueT* input, ValueT N) {
-@@ -98,9 +97,7 @@ struct GGNNGPUInstance {
+@@ -98,9 +99,7 @@ struct GGNNGPUInstance {
    typedef GGNNGraphDevice<KeyT, BaseT, ValueT> GGNNGraphDevice;
    typedef GGNNGraphHost<KeyT, BaseT, ValueT> GGNNGraphHost;
  
@@ -43,7 +229,7 @@ index 8cbaf0d..6eb72ac 100644
  
    // Graph Shards resident on the GPU
    std::vector<GGNNGraphDevice> ggnn_shards;
-@@ -117,13 +114,12 @@ struct GGNNGPUInstance {
+@@ -117,13 +116,12 @@ struct GGNNGPUInstance {
    // number of shards that need to be processed by this instance
    const int num_parts;
  
@@ -59,7 +245,7 @@ index 8cbaf0d..6eb72ac 100644
      num_parts{num_parts}
    {
      CHECK_LE(L, MAX_LAYER);
-@@ -135,7 +131,6 @@ struct GGNNGPUInstance {
+@@ -135,7 +133,6 @@ struct GGNNGPUInstance {
        CHECK_EQ(current_gpu_id, gpu_id) << "cudaSetDevice() needs to be called in advance!";
      }
  
@@ -67,7 +253,7 @@ index 8cbaf0d..6eb72ac 100644
  
      computeGraphParameters();
  
-@@ -186,7 +181,7 @@ struct GGNNGPUInstance {
+@@ -186,7 +183,7 @@ struct GGNNGPUInstance {
    }
  
    GGNNGPUInstance(const GGNNGPUInstance& other)
@@ -76,7 +262,7 @@ index 8cbaf0d..6eb72ac 100644
       gpu_id{0}, N_shard{0}, num_parts{0} {
      // this exists to allow using vector::emplace_back
      // when it triggers a reallocation, this code will be called.
-@@ -305,6 +300,7 @@ struct GGNNGPUInstance {
+@@ -305,6 +302,7 @@ struct GGNNGPUInstance {
  
    // io
  
@@ -84,7 +270,7 @@ index 8cbaf0d..6eb72ac 100644
    void waitForDiskIO(const int shard_id) {
      auto& cpu_buffer = ggnn_cpu_buffers[shard_id%ggnn_cpu_buffers.size()];
      if (cpu_buffer.disk_io_thread.joinable())
-@@ -468,11 +464,12 @@ struct GGNNGPUInstance {
+@@ -468,11 +466,12 @@ struct GGNNGPUInstance {
      CHECK_CUDA(cudaDeviceSynchronize());
      CHECK_CUDA(cudaPeekAtLastError());
    }
@@ -98,12 +284,18 @@ index 8cbaf0d..6eb72ac 100644
      CHECK_CUDA(cudaSetDevice(gpu_id));
      const auto& shard = ggnn_shards.at(shard_id%ggnn_shards.size());
  
-@@ -482,21 +479,21 @@ struct GGNNGPUInstance {
+@@ -481,25 +480,30 @@ struct GGNNGPUInstance {
+         QueryKernel;
  
      int* m_dist_statistics = nullptr;
-     if (DIST_STATS)
+-    if (DIST_STATS)
 -      cudaMallocManaged(&m_dist_statistics, dataset->N_query * sizeof(int));
++    GGNNStatistics* m_ggnn_statistics = nullptr;
++    if (DIST_STATS) {
 +      cudaMallocManaged(&m_dist_statistics, batch_size * sizeof(int));
++      cudaMallocManaged(&m_ggnn_statistics, sizeof(GGNNStatistics));
++      m_ggnn_statistics->reset();
++    }
  
      QueryKernel query_kernel;
      query_kernel.d_base = shard.d_base;
@@ -125,7 +317,27 @@ index 8cbaf0d..6eb72ac 100644
      query_kernel.N_offset = 0;
  
      query_kernel.d_dist_stats = m_dist_statistics;
-@@ -771,6 +768,16 @@ struct GGNNGPUInstance {
++    query_kernel.d_stats = m_ggnn_statistics;
+ 
+     query_kernel.part = shard_id;
+     query_kernel.num_parts = num_parts;
+@@ -507,8 +511,14 @@ struct GGNNGPUInstance {
+ 
+     query_kernel.launch(shard.stream);
+ 
+-    if (DIST_STATS)
++    if (DIST_STATS) {
++      cudaStreamSynchronize(shard.stream);
++      m_ggnn_statistics->num_queries = batch_size;
++      GGNNStatistics::getInstance().accumulate(*m_ggnn_statistics);
++      // std::cout << "accumulate Query statistics" << std::endl;
++      cudaFree(m_ggnn_statistics);
+       cudaFree(m_dist_statistics);
++    }
+   }
+ 
+   void select(const int layer, const int shard_id = 0) {
+@@ -771,6 +781,16 @@ struct GGNNGPUInstance {
        sym(layer, shard_id);
      }
    }
@@ -215,6 +427,116 @@ index 2055f9e..ef5843a 100644
      // this exists to allow using vector::emplace_back
      // when it triggers a reallocation, this code will be called.
      // always make sure that enough memory is reserved ahead of time.
+diff --git a/include/ggnn/merge/cuda_knn_merge_layer.cuh b/include/ggnn/merge/cuda_knn_merge_layer.cuh
+index 843311f..8041ee0 100644
+--- a/include/ggnn/merge/cuda_knn_merge_layer.cuh
++++ b/include/ggnn/merge/cuda_knn_merge_layer.cuh
+@@ -68,6 +68,7 @@ struct MergeKernel {
+     VLOG(1) << "MergeKernel -- Layer: " << layer_top << " -> " << layer_btm
+             << " |  N: " << N << " [" << N_offset << " " << N_offset+N << "] \n";
+     merge<<<N, BLOCK_DIM_X, 0, stream>>>((*this));
++    CHECK_CUDA(cudaGetLastError());
+   }
+ 
+   // determine the start of the top-layer segment (always 0 for layer_top = L-1)
+@@ -99,6 +100,7 @@ struct MergeKernel {
+         (!layer_btm) ? n : d_translation[c_STs_offsets[layer_btm] + n];
+ 
+     Cache cache(d_base, m, xi);
++    cache.d_ggnn_stats = nullptr;
+ 
+     const int s_offset = get_top_seg_offset(n);
+ 
+diff --git a/include/ggnn/query/cuda_knn_query_layer.cuh b/include/ggnn/query/cuda_knn_query_layer.cuh
+index a5237cc..556c6fa 100644
+--- a/include/ggnn/query/cuda_knn_query_layer.cuh
++++ b/include/ggnn/query/cuda_knn_query_layer.cuh
+@@ -28,6 +28,8 @@ limitations under the License.
+ #include "ggnn/cache/cuda_simple_knn_cache.cuh"
+ #include "ggnn/utils/cuda_knn_constants.cuh"
+ #include "ggnn/utils/cuda_knn_utils.cuh"
++#include "ggnn/query/ggnn_metrics.cuh"
++#include "ggnn/statistics.h"
+ 
+ template <typename T>
+ __global__ void query(const T kernel) {
+@@ -66,6 +68,7 @@ struct QueryKernel {
+   }
+ 
+   __device__ __forceinline__ void operator()() const {
++    auto clk_init_start = clock64();
+     const float xi =
+         (measure == Euclidean)
+             ? (d_nn1_stats[1] * d_nn1_stats[1]) * c_tau_query * c_tau_query
+@@ -74,6 +77,9 @@ struct QueryKernel {
+     const KeyT n = N_offset + static_cast<int>(blockIdx.x);
+ 
+     Cache cache(d_base, d_query, n, xi);
++    if constexpr (DIST_STATS) {
++      cache.set_stats(this->d_stats);
++    }
+     __syncthreads();
+ 
+     __shared__ KeyT s_knn[KS];
+@@ -82,6 +88,11 @@ struct QueryKernel {
+       if (s < S) s_knn[s] = d_translation[c_STs_offsets[c_L - 1] + s];
+     }
+     __syncthreads();
++    if constexpr (DIST_STATS) {
++      if (threadIdx.x == 0) {
++        atomicAdd(&this->d_stats->clk_init, clock64() - clk_init_start);
++      }
++    }
+ 
+     cache.fetch(s_knn, nullptr, S);
+     __syncthreads();
+@@ -95,11 +106,17 @@ struct QueryKernel {
+         cache.xi = min(xi, cache.s_dists[0] * c_tau_query);
+       }
+ 
++      auto clk_start = clock64();
+       const KeyT anchor = cache.pop();
+       if (anchor == Cache::EMPTY_KEY) {
+         break;
+       }
+       __syncthreads();
++      if constexpr (DIST_STATS) {
++        if (threadIdx.x == 0) {
++          atomicAdd(&this->d_stats->clk_pop, clock64() - clk_start);
++        }
++      }
+ 
+       for (int i = 0; i < ITERATIONS_FOR_K; ++i) {
+         const int k = i * BLOCK_DIM_X + threadIdx.x;
+@@ -111,6 +128,8 @@ struct QueryKernel {
+     }  // end iterations
+ 
+     __syncthreads();
++
++    auto clk_final_start = clock64();
+     cache.write_best(d_query_results, n * num_parts + part, KQuery,
+                      part * N_base);
+ 
+@@ -126,6 +145,11 @@ struct QueryKernel {
+         d_dist_stats[n] = cache.get_dist_stats();
+       }
+     }
++    if constexpr (DIST_STATS) {
++      if (threadIdx.x == 0) {
++        atomicAdd(&this->d_stats->clk_final, clock64() - clk_final_start);
++      }
++    }
+   }
+ 
+   const BaseT* d_base;        // [Nall,D]
+@@ -139,6 +163,7 @@ struct QueryKernel {
+   const float* d_nn1_stats;  // [sum,max]
+ 
+   int* d_dist_stats;          // [Nq]
++  GGNNStatistics* d_stats;    // [1]
+ 
+   int N;         // number of points to query for -> Nq
+   int N_offset;  // gpu offset in N
 diff --git a/include/ggnn/select/cuda_knn_wrs_select_layer.cuh b/include/ggnn/select/cuda_knn_wrs_select_layer.cuh
 index 49d76a1..eef69e6 100644
 --- a/include/ggnn/select/cuda_knn_wrs_select_layer.cuh
@@ -227,3 +549,22 @@ index 49d76a1..eef69e6 100644
  #include <cub/cub.cuh>
  
  #include "ggnn/utils/cuda_knn_constants.cuh"
+diff --git a/include/ggnn/utils/cuda_knn_utils.cuh b/include/ggnn/utils/cuda_knn_utils.cuh
+index 1253921..626a05a 100644
+--- a/include/ggnn/utils/cuda_knn_utils.cuh
++++ b/include/ggnn/utils/cuda_knn_utils.cuh
+@@ -48,12 +48,12 @@ template <typename T>
+ float time_launcher(const int log_level, T* kernel, int N, cudaStream_t stream = 0) {
+   cudaEvent_t start, stop;
+   cudaEventCreate(&start);
+-  cudaEventCreate(&stop);
++  CHECK_CUDA(cudaEventCreate(&stop));
+ 
+   cudaEventRecord(start, stream);
+   kernel->launch(stream);
+   cudaEventRecord(stop, stream);
+-  cudaEventSynchronize(stop);
++  CHECK_CUDA(cudaEventSynchronize(stop));
+ 
+   float milliseconds = 0;
+   cudaEventElapsedTime(&milliseconds, start, stop);

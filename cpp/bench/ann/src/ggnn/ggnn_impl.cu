@@ -68,42 +68,42 @@ void ggnn_impl<T, measure, D, KBuild, KQuery, S>::search(
   const int sorted_size    = search_param_.sorted_size;
   // default value
   if (block_dim == 32 && max_iterations == 400 && cache_size == 512 && sorted_size == 256) {
-    ggnn_->template queryLayer<32, 400, 512, 256, false>(
+    ggnn_->template queryLayer<32, 400, 512, 256, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   } else if (block_dim == 32 && max_iterations == 1000 && cache_size == 512 && sorted_size == 256) {
-    ggnn_->template queryLayer<32, 1000, 512, 256, false>(
+    ggnn_->template queryLayer<32, 1000, 512, 256, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   }
   // ggnn/src/sift1m.cu
   else if (block_dim == 32 && max_iterations == 200 && cache_size == 256 && sorted_size == 64) {
-    ggnn_->template queryLayer<32, 200, 256, 64, false>(
+    ggnn_->template queryLayer<32, 200, 256, 64, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   }
   // ggnn/src/sift1m.cu
   else if (block_dim == 32 && max_iterations == 400 && cache_size == 448 && sorted_size == 64) {
-    ggnn_->template queryLayer<32, 400, 448, 64, false>(
+    ggnn_->template queryLayer<32, 400, 448, 64, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   }
   // ggnn/src/glove200.cu
   else if (block_dim == 128 && max_iterations == 2000 && cache_size == 2048 && sorted_size == 32) {
-    ggnn_->template queryLayer<128, 2000, 2048, 32, false>(
+    ggnn_->template queryLayer<128, 2000, 2048, 32, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   }
   // for glove100
   else if (block_dim == 64 && max_iterations == 400 && cache_size == 512 && sorted_size == 32) {
-    ggnn_->template queryLayer<64, 400, 512, 32, false>(
+    ggnn_->template queryLayer<64, 400, 512, 32, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   } else if (block_dim == 128 && max_iterations == 1000 && cache_size == 512 &&
              sorted_size == 256) {
-    ggnn_->template queryLayer<128, 1000, 512, 256, false>(
+    ggnn_->template queryLayer<128, 1000, 512, 256, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   } else if (block_dim == 128 && max_iterations == 1000 && cache_size == 1024 &&
              sorted_size == 32) {
-    ggnn_->template queryLayer<128, 1000, 1024, 32, false>(
+    ggnn_->template queryLayer<128, 1000, 1024, 32, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   } else if (block_dim == 128 && max_iterations == 2000 && cache_size == 1024 &&
              sorted_size == 32) {
-    ggnn_->template queryLayer<128, 2000, 1024, 32, false>(
+    ggnn_->template queryLayer<128, 2000, 1024, 32, collect_metrics>(
       queries, batch_size, reinterpret_cast<int64_t*>(neighbors), distances);
   } else {
     throw std::runtime_error("ggnn: not supported search param");
@@ -131,6 +131,7 @@ void ggnn_impl<T, measure, D, KBuild, KQuery, S>::load(const std::string& file)
   }
 }
 
+// kbuild, kquery, segment_size
 #define INSTANTIATE(DIM)                                       \
   template class ggnn_impl<float, Euclidean, DIM, 24, 10, 32>; \
   template class ggnn_impl<float, Euclidean, DIM, 24, 10, 64>; \

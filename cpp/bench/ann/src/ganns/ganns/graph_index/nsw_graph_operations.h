@@ -225,6 +225,7 @@ public:
     cudaFree(d_result);
     cudaFree(d_graph);
     // cudaFree(d_time_breakdown);
+    cudaFree(metrics);
 	}
 
 };

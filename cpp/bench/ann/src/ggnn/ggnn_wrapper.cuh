@@ -64,20 +64,9 @@ class ggnn : public algo<T>, public algo_gpu {
     impl_->search(queries, batch_size, k, neighbors, distances);
   }
 
-  benchmark::UserCounters get_custom_counters() const override
-  {
-    return impl_->get_custom_counters();
-  }
-
-  void print_metrics() const override
-  {
-    return impl_->print_metrics();
-  }
-
-  void reset_metrics() override
-  {
-    return impl_->reset_metrics();
-  }
+  benchmark::UserCounters get_custom_counters() const override;
+  void print_metrics() const override;
+  void reset_metrics() override;
 
   [[nodiscard]] auto get_sync_stream() const noexcept -> cudaStream_t override
   {
