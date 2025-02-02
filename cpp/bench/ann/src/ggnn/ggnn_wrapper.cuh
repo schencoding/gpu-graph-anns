@@ -88,6 +88,8 @@ class ggnn : public algo<T>, public algo_gpu {
   };
 
  private:
+  template<int DIM, int K>
+  void create_impl_k(Metric metric, int dim, const build_param& param);
   template<int DIM>
   void create_impl(Metric metric, int dim, const build_param& param);
 

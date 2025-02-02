@@ -31,7 +31,7 @@
 #define N_MULTIPROBE 1
 // #define FINISH_CNT 1
 
-#define __ENABLE_MEASURE
+// #define __ENABLE_MEASURE
 
 struct Measure{
 	unsigned long long stage_init = 0;

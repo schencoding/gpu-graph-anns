@@ -132,17 +132,21 @@ void ggnn_impl<T, measure, D, KBuild, KQuery, S>::load(const std::string& file)
 }
 
 // kbuild, kquery, segment_size
-#define INSTANTIATE(DIM)                                       \
-  template class ggnn_impl<float, Euclidean, DIM, 24, 10, 32>; \
-  template class ggnn_impl<float, Euclidean, DIM, 24, 10, 64>; \
-  template class ggnn_impl<float, Euclidean, DIM, 48, 10, 32>; \
-  template class ggnn_impl<float, Euclidean, DIM, 48, 10, 64>; \
-  template class ggnn_impl<float, Euclidean, DIM, 64, 10, 64>; \
-  template class ggnn_impl<float, Euclidean, DIM, 96, 10, 64>;
+#define INSTANTIATE(DIM, KQUERY)                                       \
+  template class ggnn_impl<float, Euclidean, DIM, 24, KQUERY, 32>; \
+  template class ggnn_impl<float, Euclidean, DIM, 24, KQUERY, 64>; \
+  template class ggnn_impl<float, Euclidean, DIM, 48, KQUERY, 32>; \
+  template class ggnn_impl<float, Euclidean, DIM, 48, KQUERY, 64>; \
+  template class ggnn_impl<float, Euclidean, DIM, 64, KQUERY, 64>; \
+  template class ggnn_impl<float, Euclidean, DIM, 96, KQUERY, 64>;
 
-INSTANTIATE(100);
-INSTANTIATE(128);
-INSTANTIATE(784);
-INSTANTIATE(960);
+INSTANTIATE(100, 10);
+INSTANTIATE(128, 10);
+INSTANTIATE(784, 10);
+INSTANTIATE(960, 10);
+INSTANTIATE(100, 100);
+INSTANTIATE(128, 100);
+INSTANTIATE(784, 100);
+INSTANTIATE(960, 100);
 #undef INSTANTIATE
 }  // namespace cuvs::bench

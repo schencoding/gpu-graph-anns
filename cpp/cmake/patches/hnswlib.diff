@@ -1,5 +1,5 @@
 diff --git a/hnswlib/hnswalg.h b/hnswlib/hnswalg.h
-index bef0017..d65b538 100644
+index bef0017..77cf84c 100644
 --- a/hnswlib/hnswalg.h
 +++ b/hnswlib/hnswalg.h
 @@ -13,9 +13,12 @@ namespace hnswlib {
@@ -78,7 +78,7 @@ index bef0017..d65b538 100644
 +                        linklistsizeint *ll_cur = get_linklist_at_level(node, level);
 +                        int size = getListCount(ll_cur);
 +                        tableint *data = (tableint *)(ll_cur + 1);
-+                        
++
 +                        // 遍历所有邻居
 +                        for (int j = 0; j < size; j++) {
 +                            tableint neighbor = data[j];

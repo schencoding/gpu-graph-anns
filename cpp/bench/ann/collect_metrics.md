@@ -21,3 +21,10 @@ bench/ann/src/song/song/warp_astar_accelerator.h:33
 ```cpp
 #define __ENABLE_MEASURE
 ```
+
+# CUHNSW
+
+bench/ann/src/cuhnsw/include/cuhnsw_statistics.hpp:3
+```cpp
+#define _CLK_BREAKDOWN
+```

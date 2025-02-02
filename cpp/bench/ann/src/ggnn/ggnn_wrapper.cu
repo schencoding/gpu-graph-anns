@@ -38,23 +38,32 @@ void ggnn<T>::reset_metrics()
 }
 
 template <typename T>
+template <int DIM, int K>
+void ggnn<T>::create_impl_k(Metric metric, int dim, const build_param& param)
+{
+    if (param.k_build == 24 && param.segment_size == 32) {
+      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 24, K, 32>>(metric, dim, param);
+    } else if (param.k_build == 24 && param.segment_size == 64) {
+      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 24, K, 64>>(metric, dim, param);
+    } else if (param.k_build == 48 && param.segment_size == 32) {
+      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 48, K, 32>>(metric, dim, param);
+    } else if (param.k_build == 48 && param.segment_size == 64) {
+      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 48, K, 64>>(metric, dim, param);
+    } else if (param.k_build == 64 && param.segment_size == 64) {
+      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 64, K, 64>>(metric, dim, param);
+    } else if (param.k_build == 96 && param.segment_size == 64) {
+      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 96, K, 64>>(metric, dim, param);
+    }
+}
+
+template <typename T>
 template <int DIM>
 void ggnn<T>::create_impl(Metric metric, int dim, const build_param& param)
 {
   if (metric == Metric::kEuclidean && dim == DIM && param.k == 10) {
-    if (param.k_build == 24 && param.segment_size == 32) {
-      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 24, 10, 32>>(metric, dim, param);
-    } else if (param.k_build == 24 && param.segment_size == 64) {
-      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 24, 10, 64>>(metric, dim, param);
-    } else if (param.k_build == 48 && param.segment_size == 32) {
-      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 48, 10, 32>>(metric, dim, param);
-    } else if (param.k_build == 48 && param.segment_size == 64) {
-      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 48, 10, 64>>(metric, dim, param);
-    } else if (param.k_build == 64 && param.segment_size == 64) {
-      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 64, 10, 64>>(metric, dim, param);
-    } else if (param.k_build == 96 && param.segment_size == 64) {
-      impl_ = std::make_shared<ggnn_impl<T, Euclidean, DIM, 96, 10, 64>>(metric, dim, param);
-    }
+    create_impl_k<DIM, 10>(metric, dim, param);
+  } else if (metric == Metric::kEuclidean && dim == DIM && param.k == 100) {
+    create_impl_k<DIM, 100>(metric, dim, param);
   }
 }
 

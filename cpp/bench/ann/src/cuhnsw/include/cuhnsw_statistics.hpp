@@ -1,6 +1,6 @@
 #pragma once
 #include <iostream>
-#define _CLK_BREAKDOWN
+// #define _CLK_BREAKDOWN
 namespace cuhnsw {
 struct Statistics {
   unsigned long long distance_computation_counter = 0;

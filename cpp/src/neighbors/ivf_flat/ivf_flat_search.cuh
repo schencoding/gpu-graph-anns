@@ -15,7 +15,8 @@
  */
 
 #pragma once
-
+#include "../detail/cagra/graph_analysis_macros.h"
+#include <cuvs/neighbors/ivf_flat_metrics.cuh>
 #include "../../core/nvtx.hpp"
 #include "../detail/ann_utils.cuh"
 #include "../ivf_common.cuh"              // cuvs::neighbors::detail::ivf
@@ -221,7 +222,22 @@ void search_impl(raft::resources const& handle,
                                                                   chunk_index.data(),
                                                                   num_samples.data(),
                                                                   stream);
-
+#ifdef _GRAPH_QUALITY_ANALYSIS
+  cudaStreamSynchronize(stream.value());
+  uint32_t* num_samples_host = new uint32_t[n_queries];
+  cudaMemcpy(num_samples_host,
+             num_samples.data(),
+             sizeof(uint32_t) * n_queries,
+             cudaMemcpyDeviceToHost);
+  uint64_t total_num_samples = 0;
+  for (uint32_t i = 0; i < n_queries; i++) {
+    total_num_samples += num_samples_host[i];
+  }
+  auto& instance = IVFFlatMetrics::get_instance();
+  instance.scan_distance_computation_counter+= total_num_samples;
+  instance.nlist_distance_computation_counter += index.n_lists();
+  delete[] num_samples_host;
+#endif
   auto distances_dev_ptr = distances;
 
   uint32_t* neighbors_uint32 = nullptr;

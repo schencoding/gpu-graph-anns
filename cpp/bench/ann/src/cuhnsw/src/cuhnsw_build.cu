@@ -13,8 +13,6 @@
 
 namespace cuhnsw {
 
-// #define _CLK_BREAKDOWN
-
 void CuHNSW::GetDeviceInfo()
 {
   CHECK_CUDA(cudaGetDevice(&devId_));
@@ -66,8 +64,8 @@ void CuHNSW::GetEntryPoints(const std::vector<int>& nodes,
   thrust::device_vector<int> dev_visited_list(visited_list_size_ * block_cnt_);
   thrust::device_vector<int64_t> dev_acc_visited_cnt(block_cnt_, 0);
   thrust::device_vector<cuda_scalar>& qdata = search ? device_qdata_ : device_data_;
-  Statistics* statistics = nullptr;
 #ifdef _CLK_BREAKDOWN
+  Statistics* statistics = nullptr;
   cudaMallocManaged(&statistics, sizeof(Statistics));
 #endif
   // run kernel
@@ -282,10 +280,11 @@ void CuHNSW::SearchGraph(const float* qdata,
 
   int* global_cand_nodes_ptr             = thrust::raw_pointer_cast(device_cand_nodes.data());
   cuda_scalar* global_cand_distances_ptr = thrust::raw_pointer_cast(device_cand_distances.data());
-
+#ifdef _CLK_BREAKDOWN
   Statistics* statistics = nullptr;
   cudaMallocManaged(&statistics, sizeof(Statistics));
   statistics->reset();
+#endif
   thrust::copy(graph_vec.begin(), graph_vec.end(), device_graph.begin());
   thrust::copy(deg.begin(), deg.end(), device_deg.begin());
   thrust::copy(entries.begin(), entries.end(), device_entries.begin());
@@ -342,5 +341,4 @@ void CuHNSW::SearchGraph(const float* qdata,
 #endif
 }
 
-#undef _CLK_BREAKDOWN
 }  // namespace cuhnsw

@@ -44,7 +44,7 @@ with open("ggnn_gpu_instance-ext.cuh", "w") as f:
         for base_type in ["float"]:
             for dim in [100, 128, 784, 960]:
                 for k_build in [24, 64, 96]:
-                    for k_query in [10]:
+                    for k_query in [10, 100]:
                         for segment_size in [32, 64]:
                             f.write(
 f"""
