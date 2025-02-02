@@ -537,6 +537,21 @@ index a5237cc..556c6fa 100644
  
    int N;         // number of points to query for -> Nq
    int N_offset;  // gpu offset in N
+diff --git a/include/ggnn/query/ggnn_metrics.cuh b/include/ggnn/query/ggnn_metrics.cuh
+new file mode 100644
+index 0000000..242ee7e
+--- /dev/null
++++ b/include/ggnn/query/ggnn_metrics.cuh
+@@ -0,0 +1,9 @@
++#pragma once
++
++struct GGNNMetrics {
++  uint64_t distance_computation_counter;
++  uint64_t clk_distance_computation;
++  uint64_t clk_counter;
++
++
++};
 diff --git a/include/ggnn/select/cuda_knn_wrs_select_layer.cuh b/include/ggnn/select/cuda_knn_wrs_select_layer.cuh
 index 49d76a1..eef69e6 100644
 --- a/include/ggnn/select/cuda_knn_wrs_select_layer.cuh
@@ -549,6 +564,67 @@ index 49d76a1..eef69e6 100644
  #include <cub/cub.cuh>
  
  #include "ggnn/utils/cuda_knn_constants.cuh"
+diff --git a/include/ggnn/statistics.h b/include/ggnn/statistics.h
+new file mode 100644
+index 0000000..58537dd
+--- /dev/null
++++ b/include/ggnn/statistics.h
+@@ -0,0 +1,55 @@
++#pragma once
++#include <iostream>
++
++struct GGNNStatistics {
++  unsigned long long clk_init = 0;
++  unsigned long long clk_pop = 0;
++  unsigned long long clk_distance_computation = 0;
++  unsigned long long clk_distance_computation_load_keys_start = 0;
++  unsigned long long clk_push = 0;
++  unsigned long long clk_final = 0;
++
++  unsigned long long distance_computation_counter = 0;
++  unsigned long long num_queries = 0;
++
++  static GGNNStatistics& getInstance() {
++    static GGNNStatistics instance;
++    return instance;
++  }
++
++  void reset() {
++    clk_init = 0;
++    clk_pop = 0;
++    clk_distance_computation = 0;
++    clk_distance_computation_load_keys_start = 0;
++    clk_push = 0;
++    clk_final = 0;
++
++    distance_computation_counter = 0;
++    num_queries = 0;
++  }
++
++  void accumulate(const GGNNStatistics& other) {
++    clk_init += other.clk_init;
++    clk_pop += other.clk_pop;
++    clk_distance_computation += other.clk_distance_computation;
++    clk_distance_computation_load_keys_start += other.clk_distance_computation_load_keys_start;
++    clk_push += other.clk_push;
++    clk_final += other.clk_final;
++
++    distance_computation_counter += other.distance_computation_counter;
++    num_queries += other.num_queries;
++  }
++
++  void print() const {
++    std::cout << "clk_init: " << clk_init << std::endl;
++    std::cout << "clk_pop: " << clk_pop << std::endl;
++    std::cout << "clk_distance_computation: " << clk_distance_computation << std::endl;
++    std::cout << "clk_distance_computation_load_keys_start: " << clk_distance_computation_load_keys_start << std::endl;
++    std::cout << "clk_push: " << clk_push << std::endl;
++    std::cout << "clk_final: " << clk_final << std::endl;
++
++    std::cout << "distance_computation_counter: " << distance_computation_counter << std::endl;
++    std::cout << "num_queries: " << num_queries << std::endl;
++  }
++};
 diff --git a/include/ggnn/utils/cuda_knn_utils.cuh b/include/ggnn/utils/cuda_knn_utils.cuh
 index 1253921..626a05a 100644
 --- a/include/ggnn/utils/cuda_knn_utils.cuh
