@@ -27,7 +27,7 @@ public:
     }
 
     template<class T>
-    dist_t l2_distance(idx_t a,T& v) const{
+    dist_t l2_distance(idx_t a, const T& v) const{
         auto pa = get(a);
         dist_t ret = 0;
         for(int i = 0;i < dim;++i){
@@ -38,7 +38,7 @@ public:
     }
     
     template<class T>
-    dist_t negative_inner_prod_distance(idx_t a,T& v) const{
+    dist_t negative_inner_prod_distance(idx_t a, const T& v) const{
         auto pa = get(a);
         dist_t ret = 0;
         for(int i = 0;i < dim;++i){
@@ -48,7 +48,7 @@ public:
     }
     
     template<class T>
-    dist_t negative_cosine_distance(idx_t a,T& v) const{
+    dist_t negative_cosine_distance(idx_t a,const T& v) const{
         auto pa = get(a);
         dist_t ret = 0;
         value_t lena = 0,lenv = 0;
@@ -59,6 +59,42 @@ public:
         }
         int sign = ret < 0 ? 1 : -1;
 //        return sign * (ret * ret / lena);// / lenv);
+        return sign * (ret * ret / lena / lenv);
+    }
+    
+    dist_t l2_distance(idx_t a,idx_t b) const{
+        auto pa = get(a),
+             pb = get(b);
+        dist_t ret = 0;
+        for(int i = 0;i < dim;++i){
+            auto diff = *(pa + i) - *(pb + i);
+            ret += diff * diff;
+        }
+        return ret;
+    }
+
+    dist_t negative_inner_prod_distance(idx_t a,idx_t b) const{
+        auto pa = get(a),
+             pb = get(b);
+        dist_t ret = 0;
+        for(int i = 0;i < dim;++i){
+            ret -= (*(pa + i)) * (*(pb + i));
+        }
+        return ret;
+    }
+
+    dist_t negative_cosine_distance(idx_t a,idx_t b) const{
+        auto pa = get(a),
+             pb = get(b);
+        dist_t ret = 0;
+        value_t lena = 0,lenv = 0;
+        for(int i = 0;i < dim;++i){
+            ret += (*(pa + i)) * (*(pb + i));
+            lena += (*(pa + i)) * (*(pa + i));
+            lenv += (*(pb + i)) * (*(pb + i));
+        }
+        int sign = ret < 0 ? 1 : -1;
+    //    return sign * (ret * ret / lena);
         return sign * (ret * ret / lena / lenv);
     }
     
@@ -176,44 +212,6 @@ public:
     }
 
 };
-template<>
-dist_t Data::l2_distance(idx_t a,idx_t& b) const{
-    auto pa = get(a),
-         pb = get(b);
-    dist_t ret = 0;
-    for(int i = 0;i < dim;++i){
-        auto diff = *(pa + i) - *(pb + i);
-        ret += diff * diff;
-    }
-    return ret;
-}
-
-template<>
-dist_t Data::negative_inner_prod_distance(idx_t a,idx_t& b) const{
-    auto pa = get(a),
-         pb = get(b);
-    dist_t ret = 0;
-    for(int i = 0;i < dim;++i){
-        ret -= (*(pa + i)) * (*(pb + i));
-    }
-    return ret;
-}
-
-template<>
-dist_t Data::negative_cosine_distance(idx_t a,idx_t& b) const{
-    auto pa = get(a),
-         pb = get(b);
-    dist_t ret = 0;
-    value_t lena = 0,lenv = 0;
-    for(int i = 0;i < dim;++i){
-        ret += (*(pa + i)) * (*(pb + i));
-        lena += (*(pa + i)) * (*(pa + i));
-        lenv += (*(pb + i)) * (*(pb + i));
-    }
-    int sign = ret < 0 ? 1 : -1;
-//    return sign * (ret * ret / lena);
-    return sign * (ret * ret / lena / lenv);
-}
 
 #ifdef __ENABLE_HASH
 template<>

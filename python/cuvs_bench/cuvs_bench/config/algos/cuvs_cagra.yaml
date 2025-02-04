@@ -11,6 +11,22 @@ groups:
     search:
       itopk: [16, 32, 64, 128, 256, 512]
       search_width: [1, 2, 4, 8, 16, 32, 64]
+  mig_3g_20gb:
+    build:
+      graph_degree: [32, 64, 96, 128]
+      intermediate_graph_degree: [32, 64, 96, 128]
+      graph_build_algo: ["NN_DESCENT"]
+    search:
+      itopk: [32, 64, 128, 256, 512]
+      search_width: [1, 2, 4, 8, 16, 32, 64]
+  mig_4g_20gb:
+    build:
+      graph_degree: [32, 64, 96, 128]
+      intermediate_graph_degree: [32, 64, 96, 128]
+      graph_build_algo: ["NN_DESCENT"]
+    search:
+      itopk: [32, 64, 128, 256, 512]
+      search_width: [1, 2, 4, 8, 16, 32, 64]
   graph_analysis_v2:
     build:
       graph_degree: [32, 64, 96, 128]

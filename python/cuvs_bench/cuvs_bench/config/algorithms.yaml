@@ -52,6 +52,18 @@ ganns_hnsw:
 song:
   executable: SONG_ANN_BENCH
   requires_gpu: true
+song_cuckoofilter:
+  executable: SONG_ANN_BENCH
+  requires_gpu: true
+song_hashtable:
+  executable: SONG_ANN_BENCH
+  requires_gpu: true
+song_hashtable_sel:
+  executable: SONG_ANN_BENCH
+  requires_gpu: true
+song_hashtable_sel_del:
+  executable: SONG_ANN_BENCH
+  requires_gpu: true
 cuhnsw:
   executable: CUHNSW_ANN_BENCH
   requires_gpu: true
@@ -62,6 +74,9 @@ hnswlib:
   executable: HNSWLIB_ANN_BENCH
   requires_gpu: false
 hnswlib_32c:
+  executable: HNSWLIB_ANN_BENCH
+  requires_gpu: false
+hnswlib_40c:
   executable: HNSWLIB_ANN_BENCH
   requires_gpu: false
 cuvs_cagra_hnswlib:

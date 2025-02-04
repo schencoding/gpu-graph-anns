@@ -18,6 +18,36 @@ groups:
       max_iterations: [400, 1000, 2000]
       cache_size: [512, 1024]
       sorted_size: [32, 256]
+  mig_3g_20gb:
+    build:
+      k_build: [24, 48, 64, 96]
+      segment_size: [32, 64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25, 0.5, 0.8, 0.95, 0.99]
+      block_dim: [32, 128]
+      max_iterations: [400, 1000, 2000]
+      cache_size: [512, 1024]
+      sorted_size: [32, 256]
+  mig_4g_20gb:
+    build:
+      k_build: [24, 48, 64, 96]
+      segment_size: [32, 64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25, 0.5, 0.8, 0.95, 0.99]
+      block_dim: [32, 128]
+      max_iterations: [400, 1000, 2000]
+      cache_size: [512, 1024]
+      sorted_size: [32, 256]
   graph_analysis_v2:
     build:
       k_build: [24, 48, 64, 96]
@@ -33,3 +63,18 @@ groups:
       max_iterations: [400, 1000, 2000]
       cache_size: [512, 1024]
       sorted_size: [32, 256]
+  ncu:
+    build:
+      k_build: [48]
+      segment_size: [32]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.5]
+      block_dim: [128]
+      max_iterations: [2000]
+      cache_size: [1024]
+      sorted_size: [32]

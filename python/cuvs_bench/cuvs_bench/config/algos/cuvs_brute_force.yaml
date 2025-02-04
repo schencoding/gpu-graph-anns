@@ -5,3 +5,18 @@ groups:
       dummy_build: [0]
     search:
       dummy_search: [0]
+  mig_3g_20gb:
+    build:
+      dummy_build: [0]
+    search:
+      dummy_search: [0]
+  mig_4g_20gb:
+    build:
+      dummy_build: [0]
+    search:
+      dummy_search: [0]
+  ncu:
+    build:
+      dummy_build: [0]
+    search:
+      dummy_search: [0]

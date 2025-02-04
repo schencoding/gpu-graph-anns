@@ -1,4 +1,4 @@
-name: song
+name: song_hashtable_sel
 constraints:
   build: cuvs_bench.config.algos.constraints.song_build
   search: cuvs_bench.config.algos.constraints.song_search

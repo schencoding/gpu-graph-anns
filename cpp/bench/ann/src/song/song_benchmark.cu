@@ -42,12 +42,23 @@ void parse_search_param(const nlohmann::json& conf, typename cuvs::bench::song::
 }
 
 template <typename T, class Algo>
-auto make_algo(cuvs::bench::Metric metric, int dim, const nlohmann::json& conf)
+auto make_algo(cuvs::bench::Metric metric, int dim, const nlohmann::json& conf, VisitedTableType visited_table_type)
   -> std::unique_ptr<cuvs::bench::algo<T>>
 {
   typename Algo::build_param param;
   parse_build_param<T>(conf, param);
-  return std::make_unique<Algo>(metric, dim, param);
+  return std::make_unique<Algo>(metric, dim, param, visited_table_type);
+}
+
+VisitedTableType algo_name_to_visited_table_type(const std::string& algo_name)
+{
+  if (algo_name == "song") { return VisitedTableType::kBloomFilter; }
+  if (algo_name == "song_cuckoofilter") { return VisitedTableType::kCuckooFilter; }
+  if (algo_name == "song_hashtable") { return VisitedTableType::kHashTable; }
+  if (algo_name == "song_hashtable_sel") { return VisitedTableType::kHashTableSel; }
+  if (algo_name == "song_hashtable_sel_del") { return VisitedTableType::kHashTableSelDel; }
+
+  throw std::runtime_error("invalid algo: '" + algo_name + "'");
 }
 
 template <typename T>
@@ -59,8 +70,9 @@ auto create_algo(const std::string& algo_name,
   cuvs::bench::Metric metric = parse_metric(distance);
   std::unique_ptr<cuvs::bench::algo<T>> a;
 
+  auto visited_table_type = algo_name_to_visited_table_type(algo_name);
   if constexpr (std::is_same_v<T, float>) {
-    a = make_algo<T, cuvs::bench::song>(metric, dim, conf);
+    a = make_algo<T, cuvs::bench::song>(metric, dim, conf, visited_table_type);
   }
   if (!a) { throw std::runtime_error("invalid algo: '" + algo_name + "'"); }
 

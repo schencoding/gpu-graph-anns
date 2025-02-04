@@ -81,7 +81,93 @@ struct Measure{
   }
 };
 
-template<SongMetricType metric_type, int DIM, int TOPK>
+enum class VisitedTableType {
+  kBloomFilter,
+  kCuckooFilter,
+  kHashTable, // hashtablenosel
+  kHashTableSel,
+  kHashTableSelDel,
+};
+
+constexpr bool _enable_fixhash(VisitedTableType visited_table_type) {
+  return visited_table_type == VisitedTableType::kHashTable || visited_table_type == VisitedTableType::kHashTableSel || visited_table_type == VisitedTableType::kHashTableSelDel;
+}
+constexpr bool _define_disable_select_insert(VisitedTableType visited_table_type) {
+  return visited_table_type == VisitedTableType::kHashTable;
+}
+constexpr bool _not_define_disable_select_insert(VisitedTableType visited_table_type) {
+  return !_define_disable_select_insert(visited_table_type);
+}
+constexpr bool _enable_visited_del(VisitedTableType visited_table_type) {
+  return visited_table_type == VisitedTableType::kHashTableSelDel || visited_table_type == VisitedTableType::kCuckooFilter;
+}
+constexpr bool _enable_cuckoo_filter(VisitedTableType visited_table_type) {
+  return visited_table_type == VisitedTableType::kCuckooFilter;
+}
+
+template<VisitedTableType visited_table_type>
+struct VisitedTableTypeTrait ;
+
+template<>
+struct VisitedTableTypeTrait<VisitedTableType::kBloomFilter> {
+  template<int TOPK>
+    static auto __device__ new_pbf() {
+      constexpr auto BLOOM_FILTER_BIT64 = BloomFilterConfig<TOPK>::BLOOM_FILTER_BIT64;
+      constexpr auto BLOOM_FILTER_BIT_SHIFT = BloomFilterConfig<TOPK>::BLOOM_FILTER_BIT_SHIFT;
+      constexpr auto BLOOM_FILTER_NUM_HASH = BloomFilterConfig<TOPK>::BLOOM_FILTER_NUM_HASH;
+      BlockedBloomFilter<BLOOM_FILTER_BIT64,BLOOM_FILTER_BIT_SHIFT,BLOOM_FILTER_NUM_HASH>* pbf = new BlockedBloomFilter<BLOOM_FILTER_BIT64,BLOOM_FILTER_BIT_SHIFT,BLOOM_FILTER_NUM_HASH>();
+      return pbf;
+    }
+};
+
+// #-D__ENABLE_CUCKOO_FILTER -D__ENABLE_VISITED_DEL #cuckoofilter
+template<>
+struct VisitedTableTypeTrait<VisitedTableType::kCuckooFilter> {
+  template<int TOPK>
+    static __device__ auto new_pbf() {
+      constexpr auto CUCKOO_CAPACITY = BloomFilterConfig<TOPK>::BLOOM_FILTER_BIT64 * 2;
+      CuckooFilter<CUCKOO_CAPACITY>* pbf = new CuckooFilter<CUCKOO_CAPACITY>();
+      return pbf;
+    }
+};
+
+// #-D__ENABLE_FIXHASH -D__DISABLE_SELECT_INSERT # hashtablenosel
+template<>
+struct VisitedTableTypeTrait<VisitedTableType::kHashTable> {
+  template<int TOPK>
+    static __device__ auto new_pbf() {
+      static_assert(_define_disable_select_insert(VisitedTableType::kHashTable), "disable select insert");
+      constexpr auto HASH_TABLE_CAPACITY = TOPK*4*16 + 500;
+      auto* pbf = new FixHash<int,HASH_TABLE_CAPACITY, _enable_visited_del(VisitedTableType::kHashTable)>();
+      return pbf;
+    }
+};
+
+// #-D__ENABLE_FIXHASH #hashtable
+template<>
+struct VisitedTableTypeTrait<VisitedTableType::kHashTableSel> {
+  template<int TOPK>
+    static __device__ auto new_pbf() {
+      static_assert(!_enable_visited_del(VisitedTableType::kHashTableSel), "enable visited del");
+      constexpr auto HASH_TABLE_CAPACITY = TOPK*4*16;
+      auto* pbf = new FixHash<int,HASH_TABLE_CAPACITY, _enable_visited_del(VisitedTableType::kHashTableSel)>();
+      return pbf;
+    }
+};
+
+// #-D__ENABLE_FIXHASH -D__ENABLE_VISITED_DEL.  # hashtabledel
+template<>
+struct VisitedTableTypeTrait<VisitedTableType::kHashTableSelDel> {
+  template<int TOPK>
+    static __device__ auto new_pbf() {
+      static_assert(_enable_visited_del(VisitedTableType::kHashTableSelDel), "enable visited del");
+      constexpr auto HASH_TABLE_CAPACITY = TOPK*4*2;
+      auto * pbf = new FixHash<int,HASH_TABLE_CAPACITY, _enable_visited_del(VisitedTableType::kHashTableSelDel)>();
+      return pbf;
+    }
+};
+
+template<SongMetricType metric_type, int DIM, int TOPK, VisitedTableType visited_table_type>
 __global__
 void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_result,idx_t* d_graph,int num_query,int vertex_offset_shift, size_t finish_cnt
 #ifdef __ENABLE_MEASURE
@@ -97,35 +183,10 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
     int tid = threadIdx.x;
 	int cid = tid / CRITICAL_STEP;
 	int subtid = tid % CRITICAL_STEP;
-  constexpr auto BLOOM_FILTER_BIT64 = BloomFilterConfig<TOPK>::BLOOM_FILTER_BIT64;
-  constexpr auto BLOOM_FILTER_BIT_SHIFT = BloomFilterConfig<TOPK>::BLOOM_FILTER_BIT_SHIFT;
-  constexpr auto BLOOM_FILTER_NUM_HASH = BloomFilterConfig<TOPK>::BLOOM_FILTER_NUM_HASH;
 
-#ifndef __ENABLE_VISITED_DEL
-#define HASH_TABLE_CAPACITY (TOPK*4*16)
-#else
-#define HASH_TABLE_CAPACITY (TOPK*4*2)
-#endif
 
-#ifdef __DISABLE_SELECT_INSERT
-#undef HASH_TABLE_CAPACITY
-#define HASH_TABLE_CAPACITY (TOPK*4*16+500)
-#endif
+    decltype(VisitedTableTypeTrait<visited_table_type>::template new_pbf<TOPK>()) pbf = nullptr;
 
-    //BloomFilter<256,8,7> bf;
-    //BloomFilter<128,7,7> bf;
-    //BloomFilter<64,6,7>* pbf;
-    //BloomFilter<64,6,3> bf;
-    //VanillaList* pbf;
-#ifdef __ENABLE_FIXHASH
-    FixHash<int,HASH_TABLE_CAPACITY>* pbf;
-#elif __ENABLE_CUCKOO_FILTER
-	#define CUCKOO_CAPACITY (BLOOM_FILTER_BIT64 * 2)
-	CuckooFilter<CUCKOO_CAPACITY>* pbf;
-#else
-    //BloomFilter<BLOOM_FILTER_BIT64,BLOOM_FILTER_BIT_SHIFT,BLOOM_FILTER_NUM_HASH>* pbf;
-    BlockedBloomFilter<BLOOM_FILTER_BIT64,BLOOM_FILTER_BIT_SHIFT,BLOOM_FILTER_NUM_HASH>* pbf;
-#endif
     KernelPair<dist_t,idx_t>* q;
     KernelPair<dist_t,idx_t>* topk;
 	value_t* dist_list;
@@ -133,16 +194,7 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 		dist_list = new value_t[FIXED_DEGREE * N_MULTIPROBE];
 		q= new KernelPair<dist_t,idx_t>[QUEUE_SIZE + 2];
 		topk = new KernelPair<dist_t,idx_t>[TOPK + 1];
-    	//pbf = new BloomFilter<64,6,7>();
-#ifdef __ENABLE_FIXHASH
-		pbf = new FixHash<int,HASH_TABLE_CAPACITY>();
-#elif __ENABLE_CUCKOO_FILTER
-		pbf = new CuckooFilter<CUCKOO_CAPACITY>();
-#else
-    	//pbf = new BloomFilter<BLOOM_FILTER_BIT64,BLOOM_FILTER_BIT_SHIFT,BLOOM_FILTER_NUM_HASH>();
-    	pbf = new BlockedBloomFilter<BLOOM_FILTER_BIT64,BLOOM_FILTER_BIT_SHIFT,BLOOM_FILTER_NUM_HASH>();
-#endif
-	//pbf = new VanillaList();
+    pbf = VisitedTableTypeTrait<visited_table_type>::template new_pbf<TOPK>();
 	}
     __shared__ int heap_size[N_MULTIQUERY];
 	int topk_heap_size;
@@ -233,9 +285,9 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 			KernelPair<dist_t,idx_t> now;
 			if(subtid == 0){
 				now = smmh2::pop_min(q,heap_size[cid]);
-#ifdef __ENABLE_VISITED_DEL
-				pbf->del(now.second);
-#endif
+        if constexpr (_enable_visited_del(visited_table_type)) {
+				  pbf->del(now.second);
+        }
 				if(k == 0 && topk_heap_size == TOPK && (topk[0].first <= now.first)){
 					++finished[cid];
 				}
@@ -246,13 +298,13 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 			if(subtid == 0){
 				topk[topk_heap_size++] = now;
 				push_heap(topk,topk + topk_heap_size);
-#ifdef __ENABLE_VISITED_DEL
-				pbf->add(now.second);
-#endif
+        if constexpr (_enable_visited_del(visited_table_type)) {
+				  pbf->add(now.second);
+        }
 				if(topk_heap_size > TOPK){
-#ifdef __ENABLE_VISITED_DEL
-					pbf->del(topk[0].second);
-#endif
+          if constexpr (_enable_visited_del(visited_table_type)) {
+					  pbf->del(topk[0].second);
+          }
 					pop_heap(topk,topk + topk_heap_size);
 					--topk_heap_size;
 				}
@@ -264,9 +316,9 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 						if(pbf->test(idx)){
 							continue;
 						}
-#ifdef __DISABLE_SELECT_INSERT
-						pbf->add(idx);
-#endif
+            if constexpr (_define_disable_select_insert(visited_table_type)) {
+              pbf->add(idx);
+            }
 						index_list[cid][index_list_len[cid]++] = idx;
 					}
 				}
@@ -354,13 +406,13 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 					continue;
 #endif
 				smmh2::insert(q,heap_size[cid],kp);
-#ifndef __DISABLE_SELECT_INSERT
-				pbf->add(kp.second);
-#endif
+        if constexpr (_not_define_disable_select_insert(visited_table_type)) {
+				  pbf->add(kp.second);
+        }
 				if(heap_size[cid] >= QUEUE_SIZE + 2){
-#ifdef __ENABLE_VISITED_DEL
-					pbf->del(q[2].second);
-#endif
+          if constexpr (_enable_visited_del(visited_table_type)) {
+					  pbf->del(q[2].second);
+          }
 					smmh2::pop_max(q,heap_size[cid]);
 				}
 			}
@@ -375,6 +427,7 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
 
 #ifdef __ENABLE_MEASURE
 	auto stage_final_start= clock64();
+#endif
 	if(subtid == 0){
 		for(int i = 0;i < TOPK;++i){
 			auto now = pop_heap(topk,topk + topk_heap_size - i);
@@ -385,6 +438,7 @@ void warp_independent_search_kernel(value_t* d_data,value_t* d_query,idx_t* d_re
     	delete pbf;
     	delete[] dist_list;
 	}
+#ifdef __ENABLE_MEASURE
     auto stage_final_end = clock64();
     if(tid == 0)
       atomicAdd(&measure->stage_final,stage_final_end - stage_final_start);
@@ -396,7 +450,7 @@ private:
 
 public:
   // TOPK: priority queue size
-  template <SongMetricType metric_type, int DIM, int TOPK>
+    template<SongMetricType metric_type, int DIM, int TOPK, VisitedTableType visited_table_type>
     static void astar_multi_start_search_batch(const std::vector<std::vector<std::pair<int,value_t>>>& queries,int k,std::vector<std::vector<idx_t>>& results,value_t* h_data,idx_t* h_graph,int vertex_offset_shift,int num,int dim, size_t finish_cnt){
         value_t* d_data;
 		value_t* d_query;
@@ -413,9 +467,9 @@ public:
 		Measure h_measure;
 		cudaMalloc(&d_measure,sizeof(Measure));
 		cudaMemcpy(d_measure,&h_measure,sizeof(Measure),cudaMemcpyHostToDevice);
+		auto time_begin = std::chrono::steady_clock::now();
 #endif
 
-		auto time_begin = std::chrono::steady_clock::now();
 		std::unique_ptr<value_t[]> h_query = std::unique_ptr<value_t[]>(new value_t[queries.size() * dim]);
 		memset(h_query.get(),0,sizeof(value_t) * queries.size() * dim);
 		for(size_t i = 0;i < queries.size();++i){
@@ -436,7 +490,7 @@ public:
 		std::chrono::steady_clock::time_point kernel_begin = std::chrono::steady_clock::now();
 #endif
 
-		warp_independent_search_kernel<metric_type, DIM, TOPK><<<queries.size()/N_MULTIQUERY,32>>>(d_data,d_query,d_result,d_graph,queries.size(),vertex_offset_shift, finish_cnt
+		warp_independent_search_kernel<metric_type, DIM, TOPK, visited_table_type><<<queries.size()/N_MULTIQUERY,32>>>(d_data,d_query,d_result,d_graph,queries.size(),vertex_offset_shift, finish_cnt
 #ifdef __ENABLE_MEASURE
 , d_measure
 #endif
@@ -474,9 +528,11 @@ public:
 				v[j] = h_result[i * TOPK+ j];
 			results.push_back(v);
 		}
-		std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-		fprintf(stderr,"using %ld microseconds\n",std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
+#ifdef __ENABLE_MEASURE
+		// std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+		// fprintf(stderr,"using %ld microseconds\n",std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
 		//printf("using %ld microseconds\n",std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
+#endif
 		cudaFree(d_data);
 		cudaFree(d_query);
 		cudaFree(d_result);

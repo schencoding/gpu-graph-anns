@@ -23,7 +23,7 @@
 // 	virtual ~GraphWrapper(){};
 // };
 
-template<SongMetricType metric_type, int DIM>
+template <SongMetricType metric_type, int DIM, VisitedTableType visited_table_type>
 class KernelFixedDegreeGraph { // : public GraphWrapper{
 private:
     int degree = 15;//255;//31;
@@ -272,7 +272,7 @@ public:
   
     template<int PQ_SIZE>
 	void search_top_k_batch(const std::vector<std::vector<std::pair<int,value_t>>>& queries,int k,std::vector<std::vector<idx_t>>& results, size_t finish_cnt){
-    	WarpAStarAccelerator::template astar_multi_start_search_batch<metric_type, DIM, PQ_SIZE>(queries,k,results,data->get(0),edges.data(),vertex_offset_shift,data->max_vertices(),data->get_dim(), finish_cnt);
+    	WarpAStarAccelerator::template astar_multi_start_search_batch<metric_type, DIM, PQ_SIZE, visited_table_type>(queries,k,results,data->get(0),edges.data(),vertex_offset_shift,data->max_vertices(),data->get_dim(), finish_cnt);
         //fprintf(stderr,"finished one batch\n");
     }
 

@@ -327,8 +327,9 @@ endif()
 
 if(CUVS_ANN_BENCH_USE_SONG)
   # set_source_files_properties(src/song/song_benchmark.cu PROPERTIES COMPILE_OPTIONS "-O0;-g;-G")
+  file(GLOB SONG_SOURCES "src/song/*.cu")
   ConfigureAnnBench(
-      NAME SONG PATH src/song/song_benchmark.cu
+      NAME SONG PATH src/song/song_benchmark.cu ${SONG_SOURCES}
   )
 endif()
 

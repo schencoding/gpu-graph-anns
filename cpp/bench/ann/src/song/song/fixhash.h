@@ -1,6 +1,6 @@
 #pragma once
 
-template<typename T,const int max_size,const int EMPTY = -1,const int DELETION = -2>
+template<typename T,const int max_size, bool ENABLE_VISITED_DEL, const int EMPTY = -1,const int DELETION = -2>
 struct FixHash{
     T data[max_size];
     //const static int num_hash = 7;
@@ -27,14 +27,15 @@ struct FixHash{
 
 	__device__
     void add(T x){
-		auto code = hash(0,x);
-		while(data[code] != EMPTY
-#ifdef __ENABLE_VISITED_DEL
-			 && data[code] != DELETION
-#endif
-									  )
-			code = (code + 1) % max_size;
-		data[code] = x;
+      auto code = hash(0,x);
+      if constexpr (ENABLE_VISITED_DEL) {
+        while(data[code] != EMPTY && data[code] != DELETION)
+          code = (code + 1) % max_size;
+      } else {
+        while(data[code] != EMPTY)
+          code = (code + 1) % max_size;
+      }
+      data[code] = x;
     }
 	
 	__device__

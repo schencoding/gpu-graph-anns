@@ -19,6 +19,40 @@ groups:
       ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
       block_dim_search: [32, 64, 96, 128]
       hyper_threads_search: [100]
+  mig_3g_20gb:
+    build:
+      max_m: [24, 32]
+      max_m0: [32, 64]
+      ef_construction: [256, 512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
+      block_dim_search: [32, 64, 96, 128]
+      hyper_threads_search: [100]
+  mig_4g_20gb:
+    build:
+      max_m: [24, 32]
+      max_m0: [32, 64]
+      ef_construction: [256, 512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
+      block_dim_search: [32, 64, 96, 128]
+      hyper_threads_search: [100]
   graph_analysis_v2:
     build:
       max_m: [24, 32]
