@@ -12,6 +12,7 @@
 class Data{
 private:
     std::unique_ptr<value_t[]> data;
+    value_t* d_data = nullptr;
     const size_t num;
     std::atomic<size_t> curr_num{0};
     const int dim;

@@ -70,6 +70,13 @@
   groundtruth_neighbors_file: glove-100-inner/groundtruth.neighbors.ibin
   distance: euclidean
 
+- name: glove-200-inner
+  dims: 200
+  base_file: glove-200-inner/base.fbin
+  query_file: glove-200-inner/query.fbin
+  groundtruth_neighbors_file: glove-200-inner/groundtruth.neighbors.ibin
+  distance: euclidean
+
 - name: lastfm-65-angular
   dims: 65
   base_file: lastfm-65-angular/base.fbin
@@ -124,4 +131,17 @@
   base_file: wiki_all_88M/base.88M.fbin
   query_file: wiki_all_88M/queries.fbin
   groundtruth_neighbors_file: wiki_all_88M/groundtruth.88M.neighbors.ibin
+  distance: euclidean
+
+- name: deep10M
+  dims: 96
+  base_file: deep10M/base.10M.fbin
+  query_file: deep10M/query.public.10K.fbin
+  groundtruth_neighbors_file: deep10M/groundtruth.neighbors.ibin
+  distance: euclidean
+- name: deep1M
+  dims: 96
+  base_file: deep1M/subset.1000000.fbin
+  query_file: deep1M/query.public.10K.fbin
+  groundtruth_neighbors_file: deep1M/groundtruth.neighbors.ibin
   distance: euclidean

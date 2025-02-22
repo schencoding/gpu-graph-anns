@@ -101,7 +101,11 @@ __global__ void SearchGraphKernel(
   , Statistics* statistics
 #endif
   ) {
-
+#ifdef _CLK_BREAKDOWN
+  if (threadIdx.x == 0) {
+    atomicAdd(&statistics->counter_threadIdx_x0, 1);
+  }
+#endif
   static __shared__ int size;
   
   Neighbor* ef_search_pq = neighbors + ef_search * blockIdx.x;
@@ -130,44 +134,62 @@ __global__ void SearchGraphKernel(
 #ifdef _CLK_BREAKDOWN
     auto clk_check_visited_start = clock64();
 #endif
-    if (CheckVisited(_visited_table, _visited_list, visited_cnt, entries[i], 
-          visited_table_size, visited_list_size)) 
+    bool check_visited_res = CheckVisited(_visited_table, _visited_list, visited_cnt, entries[i], visited_table_size, visited_list_size);
+#ifdef _CLK_BREAKDOWN
+    auto clk_check_visited_end = clock64();
+    if (threadIdx.x == 0) {
+      atomicAdd(&statistics->clk_check_visited_table, clk_check_visited_end - clk_check_visited_start);
+      atomicAdd(&statistics->counter_check_visited_table, 1);
+    }
+    auto clk_get_candidates_start = clock64();
+#endif
+    if (check_visited_res)
       continue;
     __syncthreads();
     
-#ifdef _CLK_BREAKDOWN
-    auto clk_check_visited_end = clock64();
-    if (threadIdx.x == 0)
-      atomicAdd(&statistics->clk_check_visited_table, clk_check_visited_end - clk_check_visited_start);
-    auto clk_get_candidates_start = clock64();
-#endif
     // iterate until converge
     int idx = GetCand(ef_search_pq, size, reverse_cand);
 #ifdef _CLK_BREAKDOWN
     auto clk_get_candidates_end = clock64();
-    if (threadIdx.x == 0)
+    if (threadIdx.x == 0) {
       atomicAdd(&statistics->clk_get_candidates, clk_get_candidates_end - clk_get_candidates_start);
+      atomicAdd(&statistics->counter_get_candidates, 1);
+    }
 #endif
     while (idx >= 0) {
+#ifdef _CLK_BREAKDOWN
+      auto cl_set_candidates_checked_start = clock64();
+#endif
       __syncthreads();
       if (threadIdx.x == 0) ef_search_pq[idx].checked = true;
       int entry = ef_search_pq[idx].nodeid;
       __syncthreads();
-
+#ifdef _CLK_BREAKDOWN
+      auto cl_set_candidates_checked_end = clock64();
+      if (threadIdx.x == 0) {
+        atomicAdd(&statistics->clk_set_candidates_checked, cl_set_candidates_checked_end - cl_set_candidates_checked_start);
+        atomicAdd(&statistics->counter_set_candidates_checked, 1);
+      }
+#endif
       for (int j = max_m * entry; j < max_m * entry + deg[entry]; ++j) {
 #ifdef _CLK_BREAKDOWN
         auto clk_check_visited_start = clock64();
 #endif
         int dstid = graph[j];
 
-        if (CheckVisited(_visited_table, _visited_list, visited_cnt, dstid, 
-              visited_table_size, visited_list_size)) 
+        bool check_visited_res = CheckVisited(_visited_table, _visited_list, visited_cnt, dstid, 
+            visited_table_size, visited_list_size);
+#ifdef _CLK_BREAKDOWN
+        auto clk_check_visited_end = clock64();
+        if (threadIdx.x == 0) {
+          atomicAdd(&statistics->clk_check_visited_table, clk_check_visited_end - clk_check_visited_start);
+          atomicAdd(&statistics->counter_check_visited_table, 1);
+        }
+#endif
+        if (check_visited_res)
           continue;
         __syncthreads();
 #ifdef _CLK_BREAKDOWN
-        auto clk_check_visited_end = clock64();
-        if (threadIdx.x == 0)
-          atomicAdd(&statistics->clk_check_visited_table, clk_check_visited_end - clk_check_visited_start);
         auto clk_distance_computation_start = clock64();
 #endif
         const cuda_scalar* dst_vec = data + num_dims * dstid;
@@ -193,13 +215,15 @@ __global__ void SearchGraphKernel(
       idx = GetCand(ef_search_pq, size, reverse_cand);
 #ifdef _CLK_BREAKDOWN
       auto clk_get_candidates_end = clock64();
-      if (threadIdx.x == 0)
+      if (threadIdx.x == 0) {
         atomicAdd(&statistics->clk_get_candidates, clk_get_candidates_end - clk_get_candidates_start);
+        atomicAdd(&statistics->counter_get_candidates, 1);
+      }
 #endif
     }
     __syncthreads();
 #ifdef _CLK_BREAKDOWN
-    auto clk_final_start = clock64();
+    auto clk_set_visited_table_start = clock64();
 #endif
     if (threadIdx.x == 0) {
       acc_visited_cnt[blockIdx.x] += visited_cnt;
@@ -209,26 +233,48 @@ __global__ void SearchGraphKernel(
       _visited_table[_visited_list[j]] = -1;
     }
     __syncthreads();
+#ifdef _CLK_BREAKDOWN
+    auto clk_set_visited_table_end = clock64();
+    if (threadIdx.x == 0) {
+      atomicAdd(&statistics->clk_set_visited_table, clk_set_visited_table_end - clk_set_visited_table_start);
+      atomicAdd(&statistics->counter_set_visited_table, 1);
+    }
+#endif
     // get sorted neighbors
     if (threadIdx.x == 0) {
       int size2 = size;
       while (size > 0) {
+#ifdef _CLK_BREAKDOWN
+        auto clk_pq_pop_start= clock64();
+#endif
         cand_nodes[size - 1] = ef_search_pq[0].nodeid;
         cand_distances[size - 1] = ef_search_pq[0].distance;
         PqPop(ef_search_pq, &size);
+#ifdef _CLK_BREAKDOWN
+        auto clk_pq_pop_end = clock64();
+        if (threadIdx.x == 0) {
+          atomicAdd(&statistics->clk_pq_pop, clk_pq_pop_end - clk_pq_pop_start);
+          atomicAdd(&statistics->counter_pq_pop, 1);
+        }
+#endif
       }
+#ifdef _CLK_BREAKDOWN
+      auto clk_set_neighbors_found_start= clock64();
+#endif
       found_cnt[i] = size2 < topk? size2: topk;
       for (int j = 0; j < found_cnt[i]; ++j) {
         nns[j + i * topk] = cand_nodes[j];
         distances[j + i * topk] = out_scalar(cand_distances[j]);
       }
+#ifdef _CLK_BREAKDOWN
+      auto clk_set_neighbors_found_end = clock64();
+      if (threadIdx.x == 0) {
+        atomicAdd(&statistics->clk_set_neighbors_found, clk_set_neighbors_found_end - clk_set_neighbors_found_start);
+        atomicAdd(&statistics->counter_set_neighbors_found, 1);
+      }
+#endif
     }
     __syncthreads();
-#ifdef _CLK_BREAKDOWN
-    auto clk_final_end = clock64();
-    if (threadIdx.x == 0)
-      atomicAdd(&statistics->clk_final, clk_final_end - clk_final_start);
-#endif
   }
 }
 

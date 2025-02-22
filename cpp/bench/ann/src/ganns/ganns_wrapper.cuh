@@ -20,8 +20,7 @@
 
 #include "ganns/data.h"
 #include "ganns/graph_index/metrics.h"
-// #include "ganns/ganns.h"
-#include "ganns/ganns-ext.h"
+#include "ganns/ganns-inl.cuh"
 #include "ganns/metric_type.h"
 #include <iostream>
 #include <memory>
@@ -87,7 +86,8 @@ class ganns : public algo<float>, public algo_gpu {
     if constexpr (cuvs::bench::collect_metrics) {
       auto& metrics = ::ganns::Metrics::get_instance();
 
-      counters["metrics_stage_init"]                      = metrics.stage_init;
+      counters["metrics_counter_thread_idx_x0"]           = metrics.counter_thread_idx_x0;
+      counters["metrics_counter_iterations"]              = metrics.counter_iterations;
       counters["metrics_stage_init"]                      = metrics.stage_init;
       counters["metrics_stage_init_distance_computation"] = metrics.stage_init_distance_computation;
       counters["metrics_stage_1"]                         = metrics.stage_1;
@@ -96,6 +96,11 @@ class ganns : public algo<float>, public algo_gpu {
       counters["metrics_stage_4"]                         = metrics.stage_4;
       counters["metrics_stage_5"]                         = metrics.stage_5;
       counters["metrics_stage_6"]                         = metrics.stage_6;
+      counters["metrics_counter_stage1"]                  = metrics.counter_stage1;
+      counters["metrics_counter_stage2"]                  = metrics.counter_stage2;
+      counters["metrics_counter_stage4"]                  = metrics.counter_stage4;
+      counters["metrics_counter_stage5"]                  = metrics.counter_stage5;
+      counters["metrics_counter_stage6"]                  = metrics.counter_stage6;
       counters["metrics_stage_final"]                     = metrics.stage_final;
       counters["metrics_distance_computation_counter"]    = metrics.distance_computation_counter;
       counters["metrics_queries"]                         = metrics.metric_queries;
@@ -246,6 +251,14 @@ ganns::ganns(Metric metric, int dim, const build_param& param) : algo<float>(met
     build_impl<Metric::kInnerProduct, 128>(param);
     return;
   }
+  if (metric == Metric::kEuclidean && dim == 200) {
+    build_impl<Metric::kEuclidean, 200>(param);
+    return;
+  }
+  if (metric == Metric::kInnerProduct && dim == 200) {
+    build_impl<Metric::kInnerProduct, 200>(param);
+    return;
+  }
   if (metric == Metric::kEuclidean && dim == 256) {
     build_impl<Metric::kEuclidean, 256>(param);
     return;
@@ -281,6 +294,7 @@ void ganns_impl<D, metric_type, HIERARCHICAL>::set_search_dataset(const float* d
     base_dataset_ = dataset;
     base_n_rows_  = nrow;
     load_impl();
+    ganns_->PrepareDeviceData();
   }
 }
 
@@ -303,7 +317,7 @@ void ganns_impl<D, metric_type, HIERARCHICAL>::search(const float* queries,
   int* results = nullptr;
   ganns_->SearchTopKonDevice(
     const_cast<float*>(queries), k, results, batch_size, search_param_.num_of_candidates);
-  std::cout << "batch: " << batch_size << " k: " << k << std::endl;
+  // std::cout << "batch: " << batch_size << " k: " << k << std::endl;
   int internal_topk = pow(2.0, ceil(log(k) / log(2)));
   for (int i = 0; i < batch_size; ++i) {
     for (int j = 0; j < k; ++j) {

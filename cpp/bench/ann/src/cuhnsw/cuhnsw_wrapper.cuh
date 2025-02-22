@@ -90,15 +90,54 @@ class cuhnsw : public algo<float>, public algo_gpu {
     if constexpr (cuvs::bench::collect_metrics) {
       auto& statistics = ::cuhnsw::Statistics::GetInstance();
 
-     counters["metrics_distance_computation_counter"] = statistics.distance_computation_counter;
-     counters["metrics_distance_computation_counter_upper_layers"] = statistics.distance_computation_counter_upper_layers;
-     counters["metrics_num_queries"]                  = statistics.num_queries;
-     counters["metrics_clk_check_queue"]               = statistics.clk_check_queue;
-     counters["metrics_clk_distance_computation"]      = statistics.clk_distance_computation;
-     counters["metrics_clk_update_priority_queue"]     = statistics.clk_update_priority_queue;
-     counters["metrics_clk_check_visited_table"]       = statistics.clk_check_visited_table;
-     counters["metrics_clk_get_candidates"]            = statistics.clk_get_candidates;
-     counters["metrics_clk_final"]                     = statistics.clk_final;
+      // unsigned long long counter_threadIdx_x0 = 0;
+      // unsigned long long clk_distance_computation = 0;
+      // unsigned long long distance_computation_counter = 0;
+      // unsigned long long distance_computation_counter_upper_layers = 0;
+      // unsigned long long num_queries = 0;
+      //
+      // // _visited_table
+      // unsigned long long clk_check_visited_table = 0;
+      // unsigned long long counter_check_visited_table = 0;
+      // unsigned long long clk_set_visited_table = 0;
+      // unsigned long long counter_set_visited_table = 0;
+      //
+      // // ef_search_pq
+      // unsigned long long clk_get_candidates = 0;
+      // unsigned long long counter_get_candidates = 0;
+      // unsigned long long clk_pq_pop = 0;
+      // unsigned long long counter_pq_pop = 0;
+      // unsigned long long clk_set_candidates_checked = 0;
+      // unsigned long long counter_set_candidates_checked = 0;
+      // unsigned long long clk_check_queue = 0;
+      // unsigned long long counter_check_queue = 0;
+      // unsigned long long clk_pq_push = 0;
+      // unsigned long long counter_pq_push = 0;
+      //
+      // unsigned long long clk_set_neighbors_found = 0;
+      // unsigned long long counter_set_neighbors_found = 0;
+      //
+      counters["metrics_counter_threadIdx_x0"] = statistics.counter_threadIdx_x0;
+      counters["metrics_clk_distance_computation"] = statistics.clk_distance_computation;
+      counters["metrics_distance_computation_counter"] = statistics.distance_computation_counter;
+      counters["metrics_distance_computation_counter_upper_layers"] = statistics.distance_computation_counter_upper_layers;
+      counters["metrics_num_queries"] = statistics.num_queries;
+      counters["metrics_clk_check_visited_table"] = statistics.clk_check_visited_table;
+      counters["metrics_counter_check_visited_table"] = statistics.counter_check_visited_table;
+      counters["metrics_clk_set_visited_table"] = statistics.clk_set_visited_table;
+      counters["metrics_counter_set_visited_table"] = statistics.counter_set_visited_table;
+      counters["metrics_clk_get_candidates"] = statistics.clk_get_candidates;
+      counters["metrics_counter_get_candidates"] = statistics.counter_get_candidates;
+      counters["metrics_clk_pq_pop"] = statistics.clk_pq_pop;
+      counters["metrics_counter_pq_pop"] = statistics.counter_pq_pop;
+      counters["metrics_clk_set_candidates_checked"] = statistics.clk_set_candidates_checked;
+      counters["metrics_counter_set_candidates_checked"] = statistics.counter_set_candidates_checked;
+      counters["metrics_clk_check_queue"] = statistics.clk_check_queue;
+      counters["metrics_counter_check_queue"] = statistics.counter_check_queue;
+      counters["metrics_clk_pq_push"] = statistics.clk_pq_push;
+      counters["metrics_counter_pq_push"] = statistics.counter_pq_push;
+      counters["metrics_clk_set_neighbors_found"] = statistics.clk_set_neighbors_found;
+      counters["metrics_counter_set_neighbors_found"] = statistics.counter_set_neighbors_found;
     }
     return counters;
   }
@@ -243,6 +282,7 @@ void cuhnsw_impl::set_search_dataset(const float* dataset, size_t nrow)
     base_dataset_ = dataset;
     base_n_rows_  = nrow;
     cuhnsw_->SetData(base_dataset_, static_cast<int>(base_n_rows_), dim_);
+    cuhnsw_->SetDevDataIfNullptr();
   }
 }
 

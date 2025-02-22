@@ -15,8 +15,13 @@ template <ganns::MetricType metric_type, int DIM, bool collect_metrics>
 __global__
 void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, int total_num_of_points, int num_of_query_points, int num_of_final_neighbors, 
                     int num_of_candidates, int num_of_results, int num_of_explored_points, int num_of_layers, int* prefix_sum_of_num_array_of_each_layer, ganns::Metrics* metrics) {
-  auto stage_init_start = clock64();
-	int t_id = threadIdx.x;
+    if constexpr (collect_metrics) {
+        if (threadIdx.x == 0) {
+            atomicAdd(&metrics->counter_thread_idx_x0, 1);
+        }
+    }
+    auto stage_init_start = clock64();
+    int t_id = threadIdx.x;
     int b_id = blockIdx.x;
     int size_of_warp = 32;
 
@@ -187,7 +192,11 @@ void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, in
     }
    	
     while (flag_all_blocks) {
-
+        if constexpr (collect_metrics) {
+            if (t_id == 0) {
+                atomicAdd(&metrics->counter_iterations, 1);
+            }
+        }
         if (t_id == 0) {
             flags[first_position_of_flag] = 0;
         }
@@ -216,6 +225,7 @@ void SearchDevice(float* d_data, float* d_query, int* d_result, int* d_graph, in
         if constexpr (collect_metrics) {
             if(t_id == 0){
                 atomicAdd(&metrics->stage_2, stage2_end - stage2_start);
+                atomicAdd(&metrics->counter_stage2, 1);
             }
         }
         auto stage3_start = clock64();
@@ -394,6 +404,7 @@ for (int temparory_id = 0; temparory_id < (num_of_visited_points_one_batch + siz
             if(t_id == 0){
                 // crt_time_breakdown[3] += stage4_end - stage4_start;
                 atomicAdd(&metrics->stage_4, stage4_end - stage4_start);
+                atomicAdd(&metrics->counter_stage4, 1);
             }
         }
 
@@ -433,6 +444,7 @@ for (; step_id <= num_of_visited_points_one_batch / 2; step_id *= 2) {
             if(t_id == 0){
                 // crt_time_breakdown[4] += stage5_end - stage5_start;
                 atomicAdd(&metrics->stage_5, stage5_end - stage5_start);
+                atomicAdd(&metrics->counter_stage5, 1);
             }
         }
         
@@ -490,6 +502,7 @@ for (; substep_id >= 1; substep_id /= 2) {
             if(t_id == 0){
                 // crt_time_breakdown[5] += stage6_end - stage6_start;
                 atomicAdd(&metrics->stage_6, stage6_end - stage6_start);
+                atomicAdd(&metrics->counter_stage6, 1);
             }
         }
         
@@ -530,11 +543,12 @@ for (; substep_id >= 1; substep_id /= 2) {
             if(t_id == 0){
                 // crt_time_breakdown[0] += stage1_end - stage1_start;
                 atomicAdd(&metrics->stage_1, stage1_end - stage1_start);
+                atomicAdd(&metrics->counter_stage1, 1);
             }
         }
     }
 
-    auto stage_final = clock64();
+    auto stage_final_start = clock64();
     // printf("num_of_results: %d, (num_of_results + 31) / 32 = %d", num_of_results, (num_of_results + 31) / 32);
     for (int i = 0; i < (num_of_results + size_of_warp - 1) / size_of_warp; i++) {
         int unrollt_id = t_id + size_of_warp * i;
@@ -545,8 +559,9 @@ for (; substep_id >= 1; substep_id /= 2) {
         }
     }
     if constexpr (collect_metrics) {
+        auto stage_final_end = clock64();
         if (t_id == 0) {
-            atomicAdd(&metrics->stage_final, stage_final - stage_init_start);
+            atomicAdd(&metrics->stage_final, stage_final_end - stage_final_start);
         }
     }
 }

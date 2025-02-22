@@ -1,5 +1,5 @@
 #include "ggnn/statistics.h"
-#include "ggnn_impl.cuh"
+#include "ggnn_impl-ext.cuh"
 #include "ggnn_wrapper.cuh"
 
 namespace cuvs::bench {
@@ -11,16 +11,40 @@ benchmark::UserCounters ggnn<T>::get_custom_counters() const
   if constexpr (cuvs::bench::collect_metrics) {
     auto& statistics = GGNNStatistics::getInstance();
 
-    counters["metrics_clk_init"]                 = statistics.clk_init;
-    counters["metrics_clk_pop"]                  = statistics.clk_pop;
+  // unsigned long long counter_threadx_x0 = 0;
+  // unsigned long long counter_iterations = 0;
+  //
+  // unsigned long long clk_init = 0;
+  // unsigned long long clk_update_xi = 0;
+  // unsigned long long clk_pop = 0;
+  // unsigned long long counter_pop = 0;
+  // unsigned long long counter_fetch = 0;
+  // unsigned long long clk_load_dgraph = 0;
+  // unsigned long long clk_distance_computation = 0;
+  // unsigned long long clk_distance_computation_load_keys_start = 0;
+  // unsigned long long clk_push = 0;
+  // unsigned long long counter_push = 0;
+  // unsigned long long clk_final = 0;
+  //
+  // unsigned long long distance_computation_counter = 0;
+  // unsigned long long num_queries = 0;
+    
+    counters["metrics_counter_threadx_x0"] = statistics.counter_threadx_x0;
+    counters["metrics_counter_iterations"] = statistics.counter_iterations;
+    counters["metrics_clk_init"] = statistics.clk_init;
+    counters["metrics_clk_update_xi"] = statistics.clk_update_xi;
+    counters["metrics_clk_pop"] = statistics.clk_pop;
+    counters["metrics_counter_pop"] = statistics.counter_pop;
+    counters["metrics_counter_fetch"] = statistics.counter_fetch;
+    counters["metrics_clk_load_dgraph"] = statistics.clk_load_dgraph;
     counters["metrics_clk_distance_computation"] = statistics.clk_distance_computation;
-    counters["metrics_clk_distance_computation_load_keys_start"] =
-      statistics.clk_distance_computation_load_keys_start;
+    counters["metrics_clk_distance_computation_load_keys_start"] = statistics.clk_distance_computation_load_keys_start;
+    counters["metrics_clk_push"] = statistics.clk_push;
+    counters["metrics_counter_push"] = statistics.counter_push;
+    counters["metrics_clk_final"] = statistics.clk_final;
 
-    counters["metrics_clk_push"]                     = statistics.clk_push;
-    counters["metrics_clk_final"]                    = statistics.clk_final;
     counters["metrics_distance_computation_counter"] = statistics.distance_computation_counter;
-    counters["metrics_num_queries"]                  = statistics.num_queries;
+    counters["metrics_num_queries"] = statistics.num_queries;
   }
   return counters;
 }
@@ -70,9 +94,13 @@ void ggnn<T>::create_impl(Metric metric, int dim, const build_param& param)
 template <typename T>
 ggnn<T>::ggnn(Metric metric, int dim, const build_param& param) : algo<T>(metric, dim)
 {
+  create_impl<96>(metric, dim, param);
+  if (impl_) { return; }
   create_impl<100>(metric, dim, param);
   if (impl_) { return; }
   create_impl<128>(metric, dim, param);
+  if (impl_) { return; }
+  create_impl<200>(metric, dim, param);
   if (impl_) { return; }
   create_impl<784>(metric, dim, param);
   if (impl_) { return; }

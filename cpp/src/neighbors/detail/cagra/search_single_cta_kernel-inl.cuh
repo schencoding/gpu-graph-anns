@@ -560,18 +560,21 @@ __device__ void search_core(
     local_distance_calculation_counter2 = 0;
   }
   if (threadIdx.x == 0 && query_id == 0) { cagra_metrics->reset(); }
+  if (METRIC_THREAD_COND()) {
+    atomicAdd(&cagra_metrics->counter_clk_thread, 1UL);
+  }
   __syncthreads();
 #endif
 
 #ifdef _CLK_BREAKDOWN
-  std::uint64_t clk_init                 = 0;
+  std::uint64_t clk_init = 0;
   // std::uint64_t clk_compute_1st_distance = 0;
-  std::uint64_t clk_topk                 = 0;
-  std::uint64_t clk_reset_hash           = 0;
-  std::uint64_t clk_pickup_parents       = 0;
-  std::uint64_t clk_restore_hash         = 0;
+  std::uint64_t clk_topk           = 0;
+  std::uint64_t clk_reset_hash     = 0;
+  std::uint64_t clk_pickup_parents = 0;
+  std::uint64_t clk_restore_hash   = 0;
   // std::uint64_t clk_compute_distance     = 0;
-  std::uint64_t clk_total_start = clock64();
+  std::uint64_t clk_final = 0;
   std::uint64_t clk_start;
 #define _CLK_START() clk_start = clock64()
 #define _CLK_REC(V)  V += clock64() - clk_start;
@@ -628,7 +631,7 @@ __device__ void search_core(
   _CLK_REC(clk_init);
 
   // compute distance to randomly selecting nodes
-  _CLK_START();
+  // _CLK_START();
   const INDEX_T* const local_seed_ptr = seed_ptr ? seed_ptr + (num_seeds * query_id) : nullptr;
   device::compute_distance_to_random_nodes(result_indices_buffer,
                                            result_distances_buffer,
@@ -689,6 +692,11 @@ __device__ void search_core(
         }
         hashmap::init(local_visited_hashmap_ptr, hash_bitlen, hash_start_tid);
         _CLK_REC(clk_reset_hash);
+#ifdef _GRAPH_QUALITY_ANALYSIS
+        if (METRIC_THREAD_COND()) {
+          atomicAdd(&cagra_metrics->counter_reset_hash, 1UL);
+        }
+#endif
       }
 
       // topk with bitonic sort
@@ -716,6 +724,11 @@ __device__ void search_core(
         multi_warps_2);
       __syncthreads();
       _CLK_REC(clk_topk);
+#ifdef _GRAPH_QUALITY_ANALYSIS
+      if (METRIC_THREAD_COND()) {
+        atomicAdd(&cagra_metrics->counter_topk_bitonic_sort, 1UL);
+      }
+#endif
     } else {
       _CLK_START();
       // topk with radix block sort
@@ -732,12 +745,22 @@ __device__ void search_core(
         true,
         smem_work_ptr);
       _CLK_REC(clk_topk);
+#ifdef _GRAPH_QUALITY_ANALYSIS
+      if (METRIC_THREAD_COND()) {
+        atomicAdd(&cagra_metrics->counter_topk_radix_sort, 1UL);
+      }
+#endif
 
       // reset small-hash table
       if ((iter + 1) % small_hash_reset_interval == 0) {
         _CLK_START();
         hashmap::init(local_visited_hashmap_ptr, hash_bitlen);
         _CLK_REC(clk_reset_hash);
+#ifdef _GRAPH_QUALITY_ANALYSIS
+        if (METRIC_THREAD_COND()) {
+          atomicAdd(&cagra_metrics->counter_reset_hash, 1UL);
+        }
+#endif
       }
     }
     __syncthreads();
@@ -750,6 +773,11 @@ __device__ void search_core(
       pickup_next_parents<TOPK_BY_BITONIC_SORT, INDEX_T>(
         terminate_flag, parent_list_buffer, result_indices_buffer, internal_topk, search_width);
       _CLK_REC(clk_pickup_parents);
+#ifdef _GRAPH_QUALITY_ANALYSIS
+      if (METRIC_THREAD_COND()) {
+        atomicAdd(&cagra_metrics->counter_pickup_parents, 1UL);
+      }
+#endif
     }
 
     // restore small-hash table by putting internal-topk indices in it
@@ -759,6 +787,11 @@ __device__ void search_core(
       hashmap_restore(
         local_visited_hashmap_ptr, hash_bitlen, result_indices_buffer, internal_topk, first_tid);
       _CLK_REC(clk_restore_hash);
+#ifdef _GRAPH_QUALITY_ANALYSIS
+      if (METRIC_THREAD_COND()) {
+        atomicAdd(&cagra_metrics->counter_restore_hash, 1UL);
+      }
+#endif
     }
     __syncthreads();
 
@@ -810,30 +843,6 @@ __device__ void search_core(
     }
 
     iter++;
-#ifdef _GRAPH_QUALITY_ANALYSIS
-    // if (threadIdx.x == 0 && query_id < 10) {
-    //   for (unsigned _graph_analysis_topk_idx = 0; _graph_analysis_topk_idx < internal_topk;
-    //        _graph_analysis_topk_idx++) {
-    //     float result_distance = 0;
-    //     if constexpr (std::is_same_v<typename DATASET_DESCRIPTOR_T::DISTANCE_T, half>) {
-    //       result_distance = __half2float(result_distances_buffer[_graph_analysis_topk_idx]);
-    //     } else {
-    //       result_distance =
-    //       static_cast<float>(result_distances_buffer[_graph_analysis_topk_idx]);
-    //     }
-    //     printf(
-    //       "GRAPH: cagra-single-cta, file: %s, line: %d, query_id: %u, iter: %u, top: %u, idx: %u,
-    //       " "distance: %f\n",
-    //       __FILE__,
-    //       __LINE__,
-    //       query_id,
-    //       iter,
-    //       _graph_analysis_topk_idx + 1,
-    //       (uint32_t)result_indices_buffer[_graph_analysis_topk_idx],
-    //       result_distance);
-    //   }
-    // }
-#endif
   }
 
   // Post process for filtering
@@ -915,6 +924,7 @@ __device__ void search_core(
     __syncthreads();
   }
 
+  _CLK_START();
   for (std::uint32_t i = threadIdx.x; i < top_k; i += blockDim.x) {
     unsigned j  = i + (top_k * query_id);
     unsigned ii = i;
@@ -928,31 +938,31 @@ __device__ void search_core(
   if (threadIdx.x == 0 && num_executed_iterations != nullptr) {
     num_executed_iterations[query_id] = iter + 1;
   }
+  _CLK_REC(clk_final);
 #ifdef _CLK_BREAKDOWN
-  std::uint64_t clk_total_end = clock64();
-  if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && ((query_id * 3) % gridDim.y < 3)) {
-  //   printf(
-  //     "%s:%d "
-  //     "query, %d, thread, %d"
-  //     ", init, %lu"
-  //     ", 1st_distance, %lu"
-  //     ", topk, %lu"
-  //     ", reset_hash, %lu"
-  //     ", pickup_parents, %lu"
-  //     ", restore_hash, %lu"
-  //     ", distance, %lu"
-  //     "\n",
-  //     __FILE__,
-  //     __LINE__,
-  //     query_id,
-  //     threadIdx.x,
-  //     clk_init,
-  //     clk_compute_1st_distance,
-  //     clk_topk,
-  //     clk_reset_hash,
-  //     clk_pickup_parents,
-  //     clk_restore_hash,
-  //     clk_compute_distance);
+  if (METRIC_THREAD_COND()) {
+    //   printf(
+    //     "%s:%d "
+    //     "query, %d, thread, %d"
+    //     ", init, %lu"
+    //     ", 1st_distance, %lu"
+    //     ", topk, %lu"
+    //     ", reset_hash, %lu"
+    //     ", pickup_parents, %lu"
+    //     ", restore_hash, %lu"
+    //     ", distance, %lu"
+    //     "\n",
+    //     __FILE__,
+    //     __LINE__,
+    //     query_id,
+    //     threadIdx.x,
+    //     clk_init,
+    //     clk_compute_1st_distance,
+    //     clk_topk,
+    //     clk_reset_hash,
+    //     clk_pickup_parents,
+    //     clk_restore_hash,
+    //     clk_compute_distance);
     atomicAdd(&cagra_metrics->clk_init, clk_init);
     // atomicAdd(&cagra_metrics->clk_compute_1st_distance, clk_compute_1st_distance);
     atomicAdd(&cagra_metrics->clk_topk, clk_topk);
@@ -960,7 +970,7 @@ __device__ void search_core(
     atomicAdd(&cagra_metrics->clk_pickup_parents, clk_pickup_parents);
     atomicAdd(&cagra_metrics->clk_restore_hash, clk_restore_hash);
     // atomicAdd(&cagra_metrics->clk_compute_distance, clk_compute_distance);
-    atomicAdd(&cagra_metrics->clk_total, clk_total_end - clk_total_start);
+    atomicAdd(&cagra_metrics->clk_final, clk_final);
     atomicAdd(&cagra_metrics->clk_counter, 1UL);
   }
 #endif

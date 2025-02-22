@@ -166,8 +166,8 @@ void CuHNSW::SetData(const float* data, int num_data, int num_dims) {
 }
 
 void CuHNSW::SetRandomLevels(const int* levels) {
+  INFO("set levels of data (length: {})", num_data_)
   levels_.resize(num_data_);
-  DEBUG("set levels of data (length: {})", num_data_)
   max_level_ = 0;
   std::vector<std::vector<int>> level_nodes(1);
   for (int i = 0; i < num_data_; ++i) {
@@ -180,7 +180,7 @@ void CuHNSW::SetRandomLevels(const int* levels) {
     for (int l = 0; l <= levels[i]; ++l)
       level_nodes[l].push_back(i);
   }
-  DEBUG("max level: {}", max_level_)
+  INFO("max level: {}", max_level_)
   for (int i = 0; i <= max_level_; ++i)
     DEBUG("number of data in level {}: {}",
         i, level_nodes[i].size());
@@ -321,7 +321,7 @@ void CuHNSW::LoadIndex(std::string fpath) {
   max_level_ = maxlevel;
   // level_mult_ = mult;
   num_dims_ = (label_offset - offsetData) / sizeof(scalar);
-  DEBUG("meta values loaded, num_data: {}, num_dims: {}, max_m: {}, max_m0: {}, enter_point: {}, max_level: {}",
+  INFO("meta values loaded, num_data: {}, num_dims: {}, max_m: {}, max_m0: {}, enter_point: {}, max_level: {}",
       num_data_, num_dims_, max_m_, max_m0_, enter_point_, max_level_);
 
   char* data_level0_memory = (char*) malloc(max_elements * size_data_per_element);

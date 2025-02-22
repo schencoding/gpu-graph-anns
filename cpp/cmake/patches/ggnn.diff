@@ -1,5 +1,5 @@
 diff --git a/include/ggnn/cache/cuda_simple_knn_cache.cuh b/include/ggnn/cache/cuda_simple_knn_cache.cuh
-index 6ef495a..0ee9868 100644
+index 6ef495a..2eb8a76 100644
 --- a/include/ggnn/cache/cuda_simple_knn_cache.cuh
 +++ b/include/ggnn/cache/cuda_simple_knn_cache.cuh
 @@ -23,13 +23,13 @@ limitations under the License.
@@ -78,7 +78,7 @@ index 6ef495a..0ee9868 100644
      for (int item = 0; item < CACHE_ITEMS_PER_THREAD; ++item) {
        const int i = item * BLOCK_DIM_X + threadIdx.x;
        if (i < CACHE_SIZE) {
-@@ -262,22 +267,52 @@ struct SimpleKNNCache {
+@@ -262,22 +267,53 @@ struct SimpleKNNCache {
          }
        }
      }
@@ -119,6 +119,7 @@ index 6ef495a..0ee9868 100644
 +      if constexpr (DIST_STATS) {
 +        if (!threadIdx.x && d_ggnn_stats != nullptr) {
 +          atomicAdd(&d_ggnn_stats->clk_push, clock64() - clk_push_start);
++          atomicAdd(&d_ggnn_stats->counter_push, 1);
 +        }
 +      }
      }
@@ -131,7 +132,7 @@ index 6ef495a..0ee9868 100644
    }
  
    __device__ __forceinline__ void transform(const KeyT* transform) {
-@@ -287,24 +322,20 @@ struct SimpleKNNCache {
+@@ -287,24 +323,20 @@ struct SimpleKNNCache {
        if (i < BEST_SIZE) {
          // transform best
          KeyT key = s_cache[i];
@@ -163,7 +164,7 @@ index 6ef495a..0ee9868 100644
        }
      }
  
-@@ -339,12 +370,16 @@ struct SimpleKNNCache {
+@@ -339,12 +371,16 @@ struct SimpleKNNCache {
      }
    }
  
@@ -448,7 +449,7 @@ index 843311f..8041ee0 100644
      const int s_offset = get_top_seg_offset(n);
  
 diff --git a/include/ggnn/query/cuda_knn_query_layer.cuh b/include/ggnn/query/cuda_knn_query_layer.cuh
-index a5237cc..556c6fa 100644
+index a5237cc..54a2da7 100644
 --- a/include/ggnn/query/cuda_knn_query_layer.cuh
 +++ b/include/ggnn/query/cuda_knn_query_layer.cuh
 @@ -28,6 +28,8 @@ limitations under the License.
@@ -460,15 +461,20 @@ index a5237cc..556c6fa 100644
  
  template <typename T>
  __global__ void query(const T kernel) {
-@@ -66,6 +68,7 @@ struct QueryKernel {
+@@ -66,6 +68,12 @@ struct QueryKernel {
    }
  
    __device__ __forceinline__ void operator()() const {
++    if constexpr (DIST_STATS) {
++      if (threadIdx.x == 0) {
++        atomicAdd(&this->d_stats->counter_threadx_x0, 1);
++      }
++    }
 +    auto clk_init_start = clock64();
      const float xi =
          (measure == Euclidean)
              ? (d_nn1_stats[1] * d_nn1_stats[1]) * c_tau_query * c_tau_query
-@@ -74,6 +77,9 @@ struct QueryKernel {
+@@ -74,6 +82,9 @@ struct QueryKernel {
      const KeyT n = N_offset + static_cast<int>(blockIdx.x);
  
      Cache cache(d_base, d_query, n, xi);
@@ -478,7 +484,7 @@ index a5237cc..556c6fa 100644
      __syncthreads();
  
      __shared__ KeyT s_knn[KS];
-@@ -82,6 +88,11 @@ struct QueryKernel {
+@@ -82,35 +93,84 @@ struct QueryKernel {
        if (s < S) s_knn[s] = d_translation[c_STs_offsets[c_L - 1] + s];
      }
      __syncthreads();
@@ -489,26 +495,72 @@ index a5237cc..556c6fa 100644
 +    }
  
      cache.fetch(s_knn, nullptr, S);
++    if constexpr (DIST_STATS) {
++      if (threadIdx.x == 0) {
++        atomicAdd(&this->d_stats->counter_fetch, 1);
++      }
++    }
      __syncthreads();
-@@ -95,11 +106,17 @@ struct QueryKernel {
+ 
+     for (int ite = 0; ite < MAX_ITERATIONS; ++ite) {
++      if constexpr (DIST_STATS) {
++        if (threadIdx.x == 0) {
++          atomicAdd(&this->d_stats->counter_iterations, 1);
++        }
++      }
+       __syncthreads();
+ 
++      auto clk_update_xi_start = clock64();
+       if (measure == Euclidean) {
+         cache.xi = min(xi, cache.s_dists[0] * c_tau_query * c_tau_query);
+       } else if (measure == Cosine) {
          cache.xi = min(xi, cache.s_dists[0] * c_tau_query);
        }
++      if constexpr (DIST_STATS) {
++        if (threadIdx.x == 0) {
++          atomicAdd(&this->d_stats->clk_update_xi,
++              clock64() - clk_update_xi_start);
++        }
++      }
  
-+      auto clk_start = clock64();
++      auto clk_pop_start = clock64();
        const KeyT anchor = cache.pop();
        if (anchor == Cache::EMPTY_KEY) {
++        if constexpr (DIST_STATS) {
++          if (threadIdx.x == 0) {
++            atomicAdd(&this->d_stats->clk_pop, clock64() - clk_pop_start);
++            atomicAdd(&this->d_stats->counter_pop, 1);
++          }
++        }
          break;
        }
        __syncthreads();
 +      if constexpr (DIST_STATS) {
 +        if (threadIdx.x == 0) {
-+          atomicAdd(&this->d_stats->clk_pop, clock64() - clk_start);
++          atomicAdd(&this->d_stats->clk_pop, clock64() - clk_pop_start);
++            atomicAdd(&this->d_stats->counter_pop, 1);
 +        }
 +      }
  
++      auto clk_load_dgraph_start = clock64();
        for (int i = 0; i < ITERATIONS_FOR_K; ++i) {
          const int k = i * BLOCK_DIM_X + threadIdx.x;
-@@ -111,6 +128,8 @@ struct QueryKernel {
+         if (k < K) s_knn[k] = d_graph[static_cast<GAddrT>(anchor) * K + k];
+       }
+ 
+       __syncthreads();
++      if constexpr (DIST_STATS) {
++        if (threadIdx.x == 0) {
++          atomicAdd(&this->d_stats->clk_load_dgraph,
++              clock64() - clk_load_dgraph_start);
++        }
++      }
+       cache.fetch(s_knn, nullptr, K);
++      if constexpr (DIST_STATS) {
++        if (threadIdx.x == 0) {
++          atomicAdd(&this->d_stats->counter_fetch, 1);
++        }
++      }
      }  // end iterations
  
      __syncthreads();
@@ -517,7 +569,7 @@ index a5237cc..556c6fa 100644
      cache.write_best(d_query_results, n * num_parts + part, KQuery,
                       part * N_base);
  
-@@ -126,6 +145,11 @@ struct QueryKernel {
+@@ -126,6 +186,11 @@ struct QueryKernel {
          d_dist_stats[n] = cache.get_dist_stats();
        }
      }
@@ -529,7 +581,7 @@ index a5237cc..556c6fa 100644
    }
  
    const BaseT* d_base;        // [Nall,D]
-@@ -139,6 +163,7 @@ struct QueryKernel {
+@@ -139,6 +204,7 @@ struct QueryKernel {
    const float* d_nn1_stats;  // [sum,max]
  
    int* d_dist_stats;          // [Nq]
@@ -566,19 +618,27 @@ index 49d76a1..eef69e6 100644
  #include "ggnn/utils/cuda_knn_constants.cuh"
 diff --git a/include/ggnn/statistics.h b/include/ggnn/statistics.h
 new file mode 100644
-index 0000000..58537dd
+index 0000000..e8cd2c9
 --- /dev/null
 +++ b/include/ggnn/statistics.h
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,87 @@
 +#pragma once
 +#include <iostream>
 +
 +struct GGNNStatistics {
++  unsigned long long counter_threadx_x0 = 0;
++  unsigned long long counter_iterations = 0;
++
 +  unsigned long long clk_init = 0;
++  unsigned long long clk_update_xi = 0;
 +  unsigned long long clk_pop = 0;
++  unsigned long long counter_pop = 0;
++  unsigned long long counter_fetch = 0;
++  unsigned long long clk_load_dgraph = 0;
 +  unsigned long long clk_distance_computation = 0;
 +  unsigned long long clk_distance_computation_load_keys_start = 0;
 +  unsigned long long clk_push = 0;
++  unsigned long long counter_push = 0;
 +  unsigned long long clk_final = 0;
 +
 +  unsigned long long distance_computation_counter = 0;
@@ -590,11 +650,19 @@ index 0000000..58537dd
 +  }
 +
 +  void reset() {
++    counter_threadx_x0 = 0;
++    counter_iterations = 0;
++
 +    clk_init = 0;
++    clk_update_xi = 0;
 +    clk_pop = 0;
++    counter_pop = 0;
++    counter_fetch = 0;
++    clk_load_dgraph = 0;
 +    clk_distance_computation = 0;
 +    clk_distance_computation_load_keys_start = 0;
 +    clk_push = 0;
++    counter_push = 0;
 +    clk_final = 0;
 +
 +    distance_computation_counter = 0;
@@ -602,11 +670,19 @@ index 0000000..58537dd
 +  }
 +
 +  void accumulate(const GGNNStatistics& other) {
++    counter_threadx_x0 += other.counter_threadx_x0;
++    counter_iterations += other.counter_iterations;
++
 +    clk_init += other.clk_init;
++    clk_update_xi += other.clk_update_xi;
 +    clk_pop += other.clk_pop;
++    counter_pop += other.counter_pop;
++    counter_fetch += other.counter_fetch;
++    clk_load_dgraph += other.clk_load_dgraph;
 +    clk_distance_computation += other.clk_distance_computation;
 +    clk_distance_computation_load_keys_start += other.clk_distance_computation_load_keys_start;
 +    clk_push += other.clk_push;
++    counter_push += other.counter_push;
 +    clk_final += other.clk_final;
 +
 +    distance_computation_counter += other.distance_computation_counter;
@@ -614,11 +690,19 @@ index 0000000..58537dd
 +  }
 +
 +  void print() const {
++    std::cout << "counter_threadx_x0: " << counter_threadx_x0 << std::endl;
++    std::cout << "counter_iterations: " << counter_iterations << std::endl;
++
 +    std::cout << "clk_init: " << clk_init << std::endl;
++    std::cout << "clk_update_xi: " << clk_update_xi << std::endl;
 +    std::cout << "clk_pop: " << clk_pop << std::endl;
++    std::cout << "counter_pop: " << counter_pop << std::endl;
++    std::cout << "counter_fetch: " << counter_fetch << std::endl;
++    std::cout << "clk_load_dgraph: " << clk_load_dgraph << std::endl;
 +    std::cout << "clk_distance_computation: " << clk_distance_computation << std::endl;
 +    std::cout << "clk_distance_computation_load_keys_start: " << clk_distance_computation_load_keys_start << std::endl;
 +    std::cout << "clk_push: " << clk_push << std::endl;
++    std::cout << "counter_push: " << counter_push << std::endl;
 +    std::cout << "clk_final: " << clk_final << std::endl;
 +
 +    std::cout << "distance_computation_counter: " << distance_computation_counter << std::endl;

@@ -121,6 +121,10 @@ class HierarchicalNavigableSmallWorld : public GraphWrapper {
       (total_num_of_points + num_of_points_one_batch_ - 1) / num_of_points_one_batch_;
     num_of_points_one_batch_ = (total_num_of_points + num_of_batches_ - 1) / num_of_batches_;
   }
+  
+  void PrepareDeviceData() override {
+    throw std::runtime_error("Not implemented");
+  }
 
   void AddPointinGraph(int point_id, float* point)
   {

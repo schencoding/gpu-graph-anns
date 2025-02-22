@@ -24,10 +24,84 @@ void CuHNSW::GetDeviceInfo()
   cores_  = -1;
 }
 
-void CuHNSW::GetEntryPoints(const std::vector<int>& nodes,
-                            std::vector<int>& entries,
-                            int level,
-                            bool search)
+void CuHNSW::GetEntryPointsSearch(const std::vector<int>& nodes, std::vector<int>& entries, int level)
+{
+  int size = nodes.size();
+
+  // process input data for kernel
+  LevelGraph& graph                   = level_graphs_[level];
+  const std::vector<int>& upper_nodes = graph.GetNodes();
+  int upper_size                      = upper_nodes.size();
+  std::vector<int> deg(upper_size);
+  std::vector<int> neighbors(upper_size * max_m_);
+  for (int i = 0; i < size; ++i) {
+    int entryid = graph.GetNodeId(entries[i]);
+    entries[i]  = entryid;
+  }
+
+  // copy to gpu mem
+  thrust::device_vector<int> dev_nodes(size), dev_entries(size);
+  // thrust::device_vector<int> dev_upper_nodes(upper_size), dev_deg(upper_size);
+  // thrust::device_vector<int> dev_neighbors(upper_size * max_m_);
+  thrust::copy(nodes.begin(), nodes.end(), dev_nodes.begin());
+  thrust::copy(entries.begin(), entries.end(), dev_entries.begin());
+  // thrust::copy(upper_nodes.begin(), upper_nodes.end(), dev_upper_nodes.begin());
+  // thrust::copy(deg.begin(), deg.end(), dev_deg.begin());
+  // thrust::copy(neighbors.begin(), neighbors.end(), dev_neighbors.begin());
+
+  thrust::device_vector<bool> dev_visited(upper_size * block_cnt_, false);
+  thrust::device_vector<int> dev_visited_list(visited_list_size_ * block_cnt_);
+  thrust::device_vector<int64_t> dev_acc_visited_cnt(block_cnt_, 0);
+  thrust::device_vector<cuda_scalar>& qdata = device_qdata_;
+
+#ifdef _CLK_BREAKDOWN
+  Statistics* statistics = nullptr;
+  cudaMallocManaged(&statistics, sizeof(Statistics));
+#endif
+  // run kernel
+  GetEntryPointsKernel<<<block_cnt_, block_dim_>>>(
+    thrust::raw_pointer_cast(qdata.data()),
+    thrust::raw_pointer_cast(dev_nodes.data()),
+    thrust::raw_pointer_cast(device_data_.data()),
+    // thrust::raw_pointer_cast(dev_upper_nodes.data()),
+    graph.dev_upper_node_,
+    num_dims_,
+    size,
+    upper_size,
+    max_m_,
+    dist_type_,
+    // thrust::raw_pointer_cast(dev_neighbors.data()),
+    graph.dev_neighbors_,
+    // thrust::raw_pointer_cast(dev_deg.data()),
+    graph.dev_deg_,
+    thrust::raw_pointer_cast(dev_visited.data()),
+    thrust::raw_pointer_cast(dev_visited_list.data()),
+    visited_list_size_,
+    thrust::raw_pointer_cast(dev_entries.data()),
+    thrust::raw_pointer_cast(dev_acc_visited_cnt.data())
+#ifdef _CLK_BREAKDOWN
+    , statistics
+#endif
+    );
+  CHECK_CUDA(cudaDeviceSynchronize());
+  // el_[GPU] += sw_[GPU].CheckPoint();
+  thrust::copy(dev_entries.begin(), dev_entries.end(), entries.begin());
+  std::vector<int64_t> acc_visited_cnt(block_cnt_);
+  thrust::copy(dev_acc_visited_cnt.begin(), dev_acc_visited_cnt.end(), acc_visited_cnt.begin());
+  CHECK_CUDA(cudaDeviceSynchronize());
+  int64_t full_visited_cnt = std::accumulate(acc_visited_cnt.begin(), acc_visited_cnt.end(), 0);
+  DEBUG("full visited cnt: {}", full_visited_cnt);
+
+  // set output
+  for (int i = 0; i < size; ++i) {
+    entries[i] = upper_nodes[entries[i]];
+  }
+#ifdef _CLK_BREAKDOWN
+  Statistics::GetInstance().accumulate(*statistics);
+  cudaFree(statistics);
+#endif
+}
+void CuHNSW::GetEntryPointsBuild(const std::vector<int>& nodes, std::vector<int>& entries, int level)
 {
   int size = nodes.size();
 
@@ -63,7 +137,7 @@ void CuHNSW::GetEntryPoints(const std::vector<int>& nodes,
   thrust::device_vector<bool> dev_visited(upper_size * block_cnt_, false);
   thrust::device_vector<int> dev_visited_list(visited_list_size_ * block_cnt_);
   thrust::device_vector<int64_t> dev_acc_visited_cnt(block_cnt_, 0);
-  thrust::device_vector<cuda_scalar>& qdata = search ? device_qdata_ : device_data_;
+  thrust::device_vector<cuda_scalar>& qdata =  device_data_;
 #ifdef _CLK_BREAKDOWN
   Statistics* statistics = nullptr;
   cudaMallocManaged(&statistics, sizeof(Statistics));
@@ -151,7 +225,7 @@ void CuHNSW::BuildLevelGraph(int level)
   std::vector<int> entries(new_nodes.size(), enter_point_);
 
   for (int l = max_level_; l > level; --l)
-    GetEntryPoints(new_nodes, entries, l, false);
+    GetEntryPointsBuild(new_nodes, entries, l);
   for (size_t i = 0; i < new_nodes.size(); ++i) {
     int srcid                = graph.GetNodeId(new_nodes[i]);
     int dstid                = graph.GetNodeId(entries[i]);
@@ -251,22 +325,22 @@ void CuHNSW::SearchGraph(const float* qdata,
   std::iota(qnodes.begin(), qnodes.end(), 0);
   std::vector<int> entries(num_queries, enter_point_);
   for (int l = max_level_; l > 0; --l) {
-    GetEntryPoints(qnodes, entries, l, true);
+    GetEntryPointsSearch(qnodes, entries, l);
   }
-  std::vector<int> graph_vec(max_m0_ * num_data_);
-  std::vector<int> deg(num_data_);
-  LevelGraph graph = level_graphs_[0];
-  for (int i = 0; i < num_data_; ++i) {
-    const std::vector<std::pair<float, int>>& neighbors = graph.GetNeighbors(i);
-    int nbsize                                          = neighbors.size();
-    int offset                                          = i * max_m0_;
-    for (int j = 0; j < nbsize; ++j)
-      graph_vec[offset + j] = neighbors[j].second;
-    deg[i] = nbsize;
-  }
+  // std::vector<int> graph_vec(max_m0_ * num_data_);
+  // std::vector<int> deg(num_data_);
+  const LevelGraph& graph = level_graphs_[0];
+  // for (int i = 0; i < num_data_; ++i) {
+  //   const std::vector<std::pair<float, int>>& neighbors = graph.GetNeighbors(i);
+  //   int nbsize                                          = neighbors.size();
+  //   int offset                                          = i * max_m0_;
+  //   for (int j = 0; j < nbsize; ++j)
+  //     graph_vec[offset + j] = neighbors[j].second;
+  //   deg[i] = nbsize;
+  // }
 
-  thrust::device_vector<int> device_graph(max_m0_ * num_data_);
-  thrust::device_vector<int> device_deg(num_data_);
+  // thrust::device_vector<int> device_graph(max_m0_ * num_data_);
+  // thrust::device_vector<int> device_deg(num_data_);
   thrust::device_vector<int> device_entries(num_queries);
   thrust::device_vector<int> device_nns(num_queries * topk);
   thrust::device_vector<float> device_distances(num_queries * topk);
@@ -285,8 +359,8 @@ void CuHNSW::SearchGraph(const float* qdata,
   cudaMallocManaged(&statistics, sizeof(Statistics));
   statistics->reset();
 #endif
-  thrust::copy(graph_vec.begin(), graph_vec.end(), device_graph.begin());
-  thrust::copy(deg.begin(), deg.end(), device_deg.begin());
+  // thrust::copy(graph_vec.begin(), graph_vec.end(), device_graph.begin());
+  // thrust::copy(deg.begin(), deg.end(), device_deg.begin());
   thrust::copy(entries.begin(), entries.end(), device_entries.begin());
   SearchGraphKernel<<<block_cnt_, block_dim_>>>(
     thrust::raw_pointer_cast(device_qdata_.data()),
@@ -298,8 +372,10 @@ void CuHNSW::SearchGraph(const float* qdata,
     dist_type_,
     ef_search,
     thrust::raw_pointer_cast(device_entries.data()),
-    thrust::raw_pointer_cast(device_graph.data()),
-    thrust::raw_pointer_cast(device_deg.data()),
+    // thrust::raw_pointer_cast(device_graph.data()),
+    graph.dev_neighbors_,
+    // thrust::raw_pointer_cast(device_deg.data()),
+    graph.dev_deg_,
     topk,
     thrust::raw_pointer_cast(device_nns.data()),
     thrust::raw_pointer_cast(device_distances.data()),

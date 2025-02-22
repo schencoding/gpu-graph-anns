@@ -156,11 +156,11 @@ public:
 		cudaFree(d_data);
 	}
 
-	static void Search(float* h_data, float* h_query, int* h_graph, int* h_result, int num_of_query_points, int total_num_of_points, int dim_of_point, int offset_shift, int num_of_topk, int num_of_candidates, int num_of_explored_points) {
+	static void Search(float* d_data, float* h_query, int* d_graph, int* h_result, int num_of_query_points, int total_num_of_points, int dim_of_point, int offset_shift, int num_of_topk, int num_of_candidates, int num_of_explored_points) {
 
-		float* d_data;
-		cudaMalloc(&d_data, sizeof(float) * total_num_of_points * dim_of_point);
-		cudaMemcpy(d_data, h_data, sizeof(float) * total_num_of_points * dim_of_point, cudaMemcpyHostToDevice);
+		// float* d_data;
+		// cudaMalloc(&d_data, sizeof(float) * total_num_of_points * dim_of_point);
+		// cudaMemcpy(d_data, h_data, sizeof(float) * total_num_of_points * dim_of_point, cudaMemcpyHostToDevice);
 
 		float* d_query;
 		cudaMalloc(&d_query, sizeof(float) * num_of_query_points * dim_of_point);
@@ -169,9 +169,9 @@ public:
 		int* d_result;
 		cudaMalloc(&d_result, sizeof(int) * num_of_query_points * num_of_topk);
 
-		int* d_graph;
-		cudaMalloc(&d_graph, sizeof(int) * (total_num_of_points << offset_shift));
-		cudaMemcpy(d_graph, h_graph, sizeof(int) * (total_num_of_points << offset_shift), cudaMemcpyHostToDevice);
+		// int* d_graph;
+		// cudaMalloc(&d_graph, sizeof(int) * (total_num_of_points << offset_shift));
+		// cudaMemcpy(d_graph, h_graph, sizeof(int) * (total_num_of_points << offset_shift), cudaMemcpyHostToDevice);
 
 		// unsigned long long* h_time_breakdown;
 		// unsigned long long* d_time_breakdown;
@@ -181,8 +181,10 @@ public:
 		// cudaMemset(d_time_breakdown, 0, num_of_query_points * num_of_phases * sizeof(unsigned long long));
 
     ganns::Metrics* metrics = nullptr;
-    cudaMallocManaged(&metrics, sizeof(ganns::Metrics));
-    metrics->reset();
+    if constexpr (collect_metrics) {
+      cudaMallocManaged(&metrics, sizeof(ganns::Metrics));
+      metrics->reset();
+    }
 
 		SearchDevice<metric_type, DIM, collect_metrics><<<num_of_query_points, 32, ((1 << offset_shift) + num_of_candidates) * (sizeof(KernelPair<float, int>) + sizeof(int))>>>(d_data, d_query, d_result, d_graph, total_num_of_points, 
 																															num_of_query_points, offset_shift, num_of_candidates, num_of_topk, 
@@ -220,12 +222,14 @@ public:
       ganns::Metrics::get_instance().accumulate(*metrics);
     }
 
-    cudaFree(d_data);
+    // cudaFree(d_data);
     cudaFree(d_query);
     cudaFree(d_result);
-    cudaFree(d_graph);
+    // cudaFree(d_graph);
     // cudaFree(d_time_breakdown);
-    cudaFree(metrics);
+    if constexpr (collect_metrics) {
+      cudaFree(metrics);
+    }
 	}
 
 };

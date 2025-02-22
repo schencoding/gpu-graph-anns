@@ -112,25 +112,29 @@ def cuhnsw_search(params, build_params, k, batch_size):
 
 
 _GGNN_VALID_BUILD_PARAMS = {
-        # dims, k_build, k_query, segment_size
-        (24, 10, 32),
-        (24, 10, 64),
-        (48, 10, 32),
-        (48, 10, 64),
-        (64, 10, 64),
-        (96, 10, 64),
-        (96, 10, 64),
+        # k_build, segment_size
+        (24, 32),
+        (24, 64),
+        (48, 32),
+        (48, 64),
+        (64, 64),
+        (96, 64),
         }
 
 
 def ggnn_build(params, dims):
-    return dims in [96, 100, 128, 784, 960] and  params["segment_size"] > params["k_build"] / 2 and (params["k_build"], params["k_query"], params["segment_size"]) in _GGNN_VALID_BUILD_PARAMS
+    return params["segment_size"] > params["k_build"] / 2 and (params["k_build"], params["segment_size"]) in _GGNN_VALID_BUILD_PARAMS
 
 
 _GGNN_VALID_SEARCH_PARAMS = {
+        # block_dim, max_iterations, cache_size, sorted_size
+        (32, 200, 256, 64),
         (32, 400, 512, 256),
         (32, 1000, 512, 256),
+        (32, 2000, 2048, 32),
+        (64, 400, 512, 32),
         (128, 1000, 512, 256),
+        (128, 1000, 1024, 32),
         (128, 2000, 1024, 32),
         }
 

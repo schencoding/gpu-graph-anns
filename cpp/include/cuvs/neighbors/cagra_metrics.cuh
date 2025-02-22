@@ -5,15 +5,23 @@
 namespace cuvs::neighbors::cagra::detail {
 
 struct CagraMetrics {
+  std::uint64_t counter_clk_thread;
   std::uint64_t clk_init;
   std::uint64_t clk_compute_1st_distance;
   std::uint64_t clk_topk;
+  std::uint64_t counter_topk_bitonic_sort;
+  std::uint64_t counter_topk_radix_sort;
   std::uint64_t clk_reset_hash;
+  std::uint64_t counter_reset_hash;
   std::uint64_t clk_pickup_parents;
+  std::uint64_t counter_pickup_parents;
+  // 1 restore hashop = internal_topk insert hashmap
   std::uint64_t clk_restore_hash;
+  std::uint64_t counter_restore_hash;
   std::uint64_t clk_insert_hashmap;
+  std::uint64_t counter_insert_hashmap;
   std::uint64_t clk_compute_distance;
-  std::uint64_t clk_total;
+  std::uint64_t clk_final;
 
   uint64_t clk_counter;
 
@@ -25,15 +33,23 @@ struct CagraMetrics {
 
   __host__ __device__ void reset()
   {
-    clk_init                 = 0;
+    counter_clk_thread = 0;
+    clk_init           = 0;
     clk_compute_1st_distance = 0;
     clk_topk                 = 0;
+    counter_topk_bitonic_sort = 0;
+    counter_topk_radix_sort   = 0;
     clk_reset_hash           = 0;
-    clk_pickup_parents       = 0;
-    clk_restore_hash         = 0;
-    clk_insert_hashmap       = 0;
-    clk_compute_distance     = 0;
-    clk_total                = 0;
+    counter_reset_hash        = 0;
+    clk_pickup_parents        = 0;
+    counter_pickup_parents    = 0;
+    clk_restore_hash          = 0;
+    counter_restore_hash      = 0;
+    clk_insert_hashmap        = 0;
+    counter_insert_hashmap    = 0;
+    clk_compute_distance      = 0;
+    clk_final                 = 0;
+
     clk_counter              = 0;
 
     global_distance_calculation_counter1           = 0;
@@ -76,15 +92,23 @@ struct CagraMetricsAccumulator {
                   const uint32_t num_queries,
                   CagraKernelType kernel_type)
   {
+    metrics.counter_clk_thread += m.counter_clk_thread;
     metrics.clk_init += m.clk_init;
     metrics.clk_compute_1st_distance += m.clk_compute_1st_distance;
     metrics.clk_topk += m.clk_topk;
+    metrics.counter_topk_bitonic_sort += m.counter_topk_bitonic_sort;
+    metrics.counter_topk_radix_sort += m.counter_topk_radix_sort;
     metrics.clk_reset_hash += m.clk_reset_hash;
+    metrics.counter_reset_hash += m.counter_reset_hash;
     metrics.clk_pickup_parents += m.clk_pickup_parents;
+    metrics.counter_pickup_parents += m.counter_pickup_parents;
     metrics.clk_restore_hash += m.clk_restore_hash;
+    metrics.counter_restore_hash += m.counter_restore_hash;
     metrics.clk_insert_hashmap += m.clk_insert_hashmap;
+    metrics.counter_insert_hashmap += m.counter_insert_hashmap;
     metrics.clk_compute_distance += m.clk_compute_distance;
-    metrics.clk_total += m.clk_total;
+    metrics.clk_final += m.clk_final;
+
     metrics.clk_counter += m.clk_counter;
 
     metrics.global_distance_calculation_counter1 += m.global_distance_calculation_counter1;
@@ -110,21 +134,31 @@ struct CagraMetricsAccumulator {
   }
 
   void print_metrics() const {
+    std::cout << "counter_clk_thread: " << metrics.counter_clk_thread << std::endl;
     std::cout << "clk_init: " << metrics.clk_init << std::endl;
     std::cout << "clk_compute_1st_distance: " << metrics.clk_compute_1st_distance << std::endl;
     std::cout << "clk_topk: " << metrics.clk_topk << std::endl;
+    std::cout << "counter_topk_bitonic_sort: " << metrics.counter_topk_bitonic_sort << std::endl;
+    std::cout << "counter_topk_radix_sort: " << metrics.counter_topk_radix_sort << std::endl;
     std::cout << "clk_reset_hash: " << metrics.clk_reset_hash << std::endl;
+    std::cout << "counter_reset_hash: " << metrics.counter_reset_hash << std::endl;
     std::cout << "clk_pickup_parents: " << metrics.clk_pickup_parents << std::endl;
+    std::cout << "counter_pickup_parents: " << metrics.counter_pickup_parents << std::endl;
     std::cout << "clk_restore_hash: " << metrics.clk_restore_hash << std::endl;
+    std::cout << "counter_restore_hash: " << metrics.counter_restore_hash << std::endl;
     std::cout << "clk_insert_hashmap: " << metrics.clk_insert_hashmap << std::endl;
+    std::cout << "counter_insert_hashmap: " << metrics.counter_insert_hashmap << std::endl;
     std::cout << "clk_compute_distance: " << metrics.clk_compute_distance << std::endl;
-    std::cout << "clk_total: " << metrics.clk_total << std::endl;
+    std::cout << "clk_final: " << metrics.clk_final << std::endl;
+
     std::cout << "clk_counter: " << metrics.clk_counter << std::endl;
+
     std::cout << "global_distance_calculation_counter1: " << metrics.global_distance_calculation_counter1 << std::endl;
     std::cout << "global_distance_calculation_counter2: " << metrics.global_distance_calculation_counter2 << std::endl;
     std::cout << "global_distance_calculation_counter3: " << metrics.global_distance_calculation_counter3 << std::endl;
     std::cout << "global_distance_calculation_counter4: " << metrics.global_distance_calculation_counter4 << std::endl;
     std::cout << "global_distance_calculation_counter3_4_counter: " << metrics.global_distance_calculation_counter3_4_counter << std::endl;
+
     std::cout << "num_executed_iterations: " << num_executed_iterations << std::endl;
     std::cout << "num_queries: " << num_queries << std::endl;
     std::cout << "kernel_type: " << static_cast<int>(kernel_type) << std::endl;

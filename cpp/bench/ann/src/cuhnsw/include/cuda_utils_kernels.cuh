@@ -220,13 +220,16 @@ void PushNodeToSearchPq(Neighbor* pq, int* size, const int max_size,
 #ifdef _CLK_BREAKDOWN
   auto clk_check_queue_start = clock64();
 #endif
-  if (CheckAlreadyExists(pq, *size, dstid)) return;
+  bool check_already_exists = CheckAlreadyExists(pq, *size, dstid);
 #ifdef _CLK_BREAKDOWN
   auto clk_check_queue_end = clock64();
-  if (threadIdx.x == 0)
+  if (threadIdx.x == 0) {
     atomicAdd(&statistics->clk_check_queue, clk_check_queue_end - clk_check_queue_start);
+    atomicAdd(&statistics->counter_check_queue, 1);
+  }
   auto clk_distance_computation_start = clock64();
 #endif
+  if (check_already_exists) return;
   const cuda_scalar* dst_vec = data + num_dims * dstid;
   cuda_scalar dist = GetDistanceByVec(src_vec, dst_vec, num_dims, dist_type);
   __syncthreads();
@@ -236,20 +239,42 @@ void PushNodeToSearchPq(Neighbor* pq, int* size, const int max_size,
     atomicAdd(&statistics->clk_distance_computation, clk_distance_computation_end - clk_distance_computation_start);
     atomicAdd(&statistics->distance_computation_counter, 1);
   }
-  auto clk_update_priority_queue_start = clock64();
 #endif
   if (*size < max_size) {
+#ifdef _CLK_BREAKDOWN
+  auto clk_pq_push_start = clock64();
+#endif
     PqPush(pq, size, dist, dstid, false);
+#ifdef _CLK_BREAKDOWN
+  auto clk_pq_push_end = clock64();
+  if (threadIdx.x == 0) {
+    atomicAdd(&statistics->clk_pq_push, clk_pq_push_end - clk_pq_push_start);
+    atomicAdd(&statistics->counter_pq_push, 1);
+  }
+#endif
   } else if (gt(pq[0].distance, dist)) {
+#ifdef _CLK_BREAKDOWN
+  auto clk_pq_pop_start = clock64();
+#endif
     PqPop(pq, size);
+#ifdef _CLK_BREAKDOWN
+  auto clk_pq_pop_end = clock64();
+  if (threadIdx.x == 0) {
+    atomicAdd(&statistics->clk_pq_pop, clk_pq_pop_end - clk_pq_pop_start);
+    atomicAdd(&statistics->counter_pq_pop, 1);
+  }
+  auto clk_pq_push_start = clock64();
+#endif
     PqPush(pq, size, dist, dstid, false);
+#ifdef _CLK_BREAKDOWN
+  auto clk_pq_push_end = clock64();
+  if (threadIdx.x == 0) {
+    atomicAdd(&statistics->clk_pq_push, clk_pq_push_end - clk_pq_push_start);
+    atomicAdd(&statistics->counter_pq_push, 1);
+  }
+#endif
   }
   __syncthreads();
-#ifdef _CLK_BREAKDOWN
-  auto clk_update_priority_queue_end = clock64();
-  if (threadIdx.x == 0)
-    atomicAdd(&statistics->clk_update_priority_queue, clk_update_priority_queue_end - clk_update_priority_queue_start);
-#endif
 }
 
 

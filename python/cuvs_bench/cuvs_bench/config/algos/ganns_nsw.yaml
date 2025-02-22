@@ -6,31 +6,73 @@ groups:
   base:
     build:
       hierarchical: [False]
-      num_of_candidates_build: [16, 32, 64, 128, 256]
+      num_of_candidates_build: [16, 32, 64, 96, 128, 256]
       num_of_initial_neighbors: [64]
     search:
-      num_of_candidates_search: [16, 32, 64, 128, 256, 512, 1024]
+      num_of_candidates_search: [16, 32, 64, 96, 128, 256, 512, 1024]
+  mig_1c_4g_20gb:
+    build:
+      hierarchical: [False]
+      num_of_candidates_build: [16, 32, 64, 96, 128, 256]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [16, 32, 64, 96, 128, 256, 512, 1024]
+  mig_2c_3g_20gb:
+    build:
+      hierarchical: [False]
+      num_of_candidates_build: [16, 32, 64, 96, 128, 256]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [16, 32, 64, 96, 128, 256, 512, 1024]
   mig_3g_20gb:
     build:
       hierarchical: [False]
-      num_of_candidates_build: [16, 32, 64, 128, 256]
+      num_of_candidates_build: [16, 32, 64, 96, 128, 256]
       num_of_initial_neighbors: [64]
     search:
-      num_of_candidates_search: [16, 32, 64, 128, 256, 512, 1024]
+      num_of_candidates_search: [16, 32, 64, 96, 128, 256, 512, 1024]
   mig_4g_20gb:
     build:
       hierarchical: [False]
-      num_of_candidates_build: [16, 32, 64, 128, 256]
+      num_of_candidates_build: [16, 32, 64, 96, 128, 256]
       num_of_initial_neighbors: [64]
     search:
-      num_of_candidates_search: [16, 32, 64, 128, 256, 512, 1024]
+      num_of_candidates_search: [16, 32, 64, 96, 128, 256, 512, 1024]
+  mig_1c_7g_40gb:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [32]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [32]
+  mig_2c_7g_40gb:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [32]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [32]
+  mig_3c_7g_40gb:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [32]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [32]
+  mig_4c_7g_40gb:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [32]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [32]
   graph_analysis_v2:
     build:
       hierarchical: [False]
-      num_of_candidates_build: [16, 32, 64, 128, 256]
+      num_of_candidates_build: [16, 32, 64, 96, 128, 256]
       num_of_initial_neighbors: [64]
     search:
-      num_of_candidates_search: [16, 32, 64, 128, 256, 512, 1024]
+      num_of_candidates_search: [16, 32, 64, 96, 128, 256, 512, 1024]
   ncu:
     build:
       hierarchical: [True]
@@ -38,3 +80,31 @@ groups:
       num_of_initial_neighbors: [64]
     search:
       num_of_candidates_search: [1024]
+  ncu_recall95_v1_glove_100_inner_k10_bs10000:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [256]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [256]
+  ncu_recall95_v1_sift_128_euclidean_k10_bs10000:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [32]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [32]
+  ncu_recall95_v1_mnist_784_euclidean_k10_bs10000:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [32]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [16]
+  ncu_recall95_v1_gist_960_euclidean_k10_bs1000:
+    build:
+      hierarchical: [True]
+      num_of_candidates_build: [256]
+      num_of_initial_neighbors: [64]
+    search:
+      num_of_candidates_search: [128]

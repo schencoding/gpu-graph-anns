@@ -123,6 +123,9 @@ void song_impl<metric_type, DIM, visited_table_type>::search(const float* querie
     case 3200:
       song_->template search_top_k_batch<3200>(queries_vec, k, results, search_param_.finish_cnt);
       break;
+    case 6400:
+      song_->template search_top_k_batch<6400>(queries_vec, k, results, search_param_.finish_cnt);
+      break;
     default: throw std::runtime_error("unsupported pq_size");
   }
   for (int i = 0; i < batch_size; ++i) {
@@ -155,6 +158,7 @@ void song_impl<metric_type, DIM, visited_table_type>::set_search_dataset(
   add_data(dataset, nrow, false);
   song_ = std::make_shared<song_instance>(data_.get(), build_param_.degree);
   song_->load(file_);
+  song_->set_device_data_and_graph_if_nullptr();
 };
 
 #define INSTANTIATE_SONG_IMPL(dim) \

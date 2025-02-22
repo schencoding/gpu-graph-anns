@@ -153,10 +153,10 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
 
 #ifdef _CLK_BREAKDOWN
     uint64_t clk_1st_distance_end = clock64();
-    if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
-        ((blockIdx.y * 3) % gridDim.y < 3)) {
+    if (METRIC_THREAD_COND()) {
       atomicAdd(&metrics->clk_compute_1st_distance, clk_1st_distance_end - clk_1st_distance_start);
     }
+    unsigned long count_insert_hashmap = 0;
     uint64_t clk_hash_insert_begin = clock64();
 #endif
 
@@ -170,12 +170,15 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_random_nodes(
         result_distances_ptr[i] = raft::upper_bound<DistanceT>();
         result_indices_ptr[i]   = raft::upper_bound<IndexT>();
       }
+#ifdef _GRAPH_QUALITY_ANALYSIS
+      ++count_insert_hashmap;
+#endif
     }
 #ifdef _GRAPH_QUALITY_ANALYSIS
     uint64_t clk_hash_insert_end = clock64();
-    if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
-        ((blockIdx.y * 3) % gridDim.y < 3)) {
+    if (METRIC_THREAD_COND()) {
       atomicAdd(&metrics->clk_insert_hashmap, clk_hash_insert_end - clk_hash_insert_begin);
+      atomicAdd(&metrics->counter_insert_hashmap, count_insert_hashmap);
     }
     if (valid_i && lane_id == 0) {
       if (blockIdx.x == 0) {  // local CTA ID
@@ -221,6 +224,7 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_child_nodes(
   constexpr IndexT invalid_index    = raft::upper_bound<IndexT>();
 
 #ifdef _GRAPH_QUALITY_ANALYSIS
+  uint64_t count_insert_hashmap = 0;
   uint64_t clk_start = clock64();
 #endif
   // Read child indices of parents from knn graph and check if the distance
@@ -236,14 +240,17 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_child_nodes(
       if (hashmap::insert(visited_hashmap_ptr, hash_bitlen, child_id) == 0) {
         child_id = invalid_index;
       }
+#ifdef _GRAPH_QUALITY_ANALYSIS
+      ++count_insert_hashmap;
+#endif
     }
     result_child_indices_ptr[i] = child_id;
   }
 #ifdef _GRAPH_QUALITY_ANALYSIS
   uint64_t clk_insert_hashmap = clock64() - clk_start;
-  if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
-      ((blockIdx.y * 3) % gridDim.y < 3)) {
+  if (METRIC_THREAD_COND()) {
     atomicAdd(&metrics->clk_insert_hashmap, clk_insert_hashmap);
+    atomicAdd(&metrics->counter_insert_hashmap, count_insert_hashmap);
   }
 #endif
   __syncthreads();
@@ -284,8 +291,7 @@ RAFT_DEVICE_INLINE_FUNCTION void compute_distance_to_child_nodes(
   }
 #ifdef _GRAPH_QUALITY_ANALYSIS
   uint64_t clk_compute_distance = clock64() - clk_start;
-  if ((threadIdx.x == 0 || threadIdx.x == blockDim.x - 1) && (blockIdx.x == 0) &&
-      ((blockIdx.y * 3) % gridDim.y < 3)) {
+  if (METRIC_THREAD_COND()) {
     atomicAdd(&metrics->clk_compute_distance, clk_compute_distance);
   }
   if (lead_lane && blockIdx.x == 0) {

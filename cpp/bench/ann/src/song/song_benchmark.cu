@@ -101,7 +101,7 @@ REGISTER_ALGO_INSTANCE(float);
 int main(int argc, char** argv)
 {
   // You may need to increase this parameter for some new GPUs
-  cudaDeviceSetLimit(cudaLimitMallocHeapSize, 20ULL * 1024 * 1024 * 1024);
+  cudaDeviceSetLimit(cudaLimitMallocHeapSize, 30ULL * 1024 * 1024 * 1024);
   return cuvs::bench::run_main(argc, argv);
 }
 #endif

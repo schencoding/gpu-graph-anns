@@ -75,14 +75,68 @@ class song : public algo<data_value_t>, public algo_gpu {
   {
     benchmark::UserCounters counters;
     if constexpr (cuvs::bench::collect_metrics) {
-      auto& measure                                    = Measure::get_instance();
-      counters["metrics_stage_init"]                   = measure.stage_init;
-      counters["metrics_stage1"]                       = measure.stage1;
-      counters["metrics_stage_distance_computation"]   = measure.stage_distance_computation;
-      counters["metrics_stage3"]                       = measure.stage3;
-      counters["metrics_stage_final"]                  = measure.stage_final;
-      counters["metrics_distance_computation_counter"] = measure.distance_computation_counter;
-      counters["metrics_queries"]                      = measure.metric_queries;
+      auto& measure = Measure::get_instance();
+
+      //  unsigned long long iteration_counter = 0;
+      // unsigned long long stage_distance_computation = 0;
+      //  unsigned long long stage_final = 0;
+      //  unsigned long long distance_computation_counter = 0;
+      //
+      //  unsigned long long clock_threadidx_x_counter = 0;
+      //  unsigned long long clk_new_local_memory = 0;
+      //
+      //  unsigned long long clk_smmh2_pop_min = 0;
+      //  unsigned long long smmh2_pop_min_counter = 0;
+      //
+      //  unsigned long long clk_smmh2_pop_max = 0;
+      //  unsigned long long smmh2_pop_max_counter = 0;
+      //
+      //  unsigned long long clk_smmh2_push = 0;
+      //  unsigned long long smmh2_push_counter = 0;
+      //
+      //  unsigned long long clk_binheap_push = 0;
+      //  unsigned long long binheap_push_counter = 0;
+      //
+      //  unsigned long long clk_binheap_pop = 0;
+      //  unsigned long long binheap_pop_counter = 0;
+      //
+      //  unsigned long long clk_pbf_add = 0;
+      //  unsigned long long pbf_add_counter = 0;
+      //
+      //  unsigned long long clk_pbf_test = 0;
+      //  unsigned long long pbf_pbf_test_counter = 0;
+      //
+      //  unsigned long long clk_pbf_del = 0;
+      //  unsigned long long pbf_del_counter = 0;
+      //
+      //  unsigned long long clk_finished_array_access = 0;
+      //
+      //  unsigned long long clk_init_distance_computation = 0;
+      counters["metrics_iteration_counter"]             = measure.iteration_counter;
+      counters["metrics_stage_distance_computation"]    = measure.stage_distance_computation;
+      counters["metrics_stage_final"]                   = measure.stage_final;
+      counters["metrics_distance_computation_counter"]  = measure.distance_computation_counter;
+      counters["metrics_clock_threadidx_x_counter"]     = measure.clock_threadidx_x_counter;
+      counters["metrics_clk_new_local_memory"]          = measure.clk_new_local_memory;
+      counters["metrics_clk_smmh2_pop_min"]             = measure.clk_smmh2_pop_min;
+      counters["metrics_smmh2_pop_min_counter"]         = measure.smmh2_pop_min_counter;
+      counters["metrics_clk_smmh2_pop_max"]             = measure.clk_smmh2_pop_max;
+      counters["metrics_smmh2_pop_max_counter"]         = measure.smmh2_pop_max_counter;
+      counters["metrics_clk_smmh2_push"]                = measure.clk_smmh2_push;
+      counters["metrics_smmh2_push_counter"]            = measure.smmh2_push_counter;
+      counters["metrics_clk_binheap_push"]              = measure.clk_binheap_push;
+      counters["metrics_binheap_push_counter"]          = measure.binheap_push_counter;
+      counters["metrics_clk_binheap_pop"]               = measure.clk_binheap_pop;
+      counters["metrics_binheap_pop_counter"]           = measure.binheap_pop_counter;
+      counters["metrics_clk_pbf_add"]                   = measure.clk_pbf_add;
+      counters["metrics_pbf_add_counter"]               = measure.pbf_add_counter;
+      counters["metrics_clk_pbf_test"]                  = measure.clk_pbf_test;
+      counters["metrics_pbf_test_counter"]              = measure.pbf_test_counter;
+      counters["metrics_clk_pbf_del"]                   = measure.clk_pbf_del;
+      counters["metrics_pbf_del_counter"]               = measure.pbf_del_counter;
+      counters["metrics_clk_finished_array_access"]     = measure.clk_finished_array_access;
+      counters["metrics_clk_init_distance_computation"] = measure.clk_init_distance_computation;
+      counters["metrics_queries"]                       = measure.metric_queries;
     }
     return counters;
   }
@@ -111,7 +165,6 @@ class song : public algo<data_value_t>, public algo_gpu {
   std::shared_ptr<algo<data_value_t>> impl_;
 };
 
-
 template <Metric metric>
 struct ConvertMetricTrait;
 
@@ -124,6 +177,5 @@ template <>
 struct ConvertMetricTrait<Metric::kInnerProduct> {
   static constexpr SongMetricType metric = SongMetricType::IP;
 };
-
 
 }  // namespace cuvs::bench

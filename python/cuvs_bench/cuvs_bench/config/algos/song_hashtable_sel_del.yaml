@@ -6,10 +6,20 @@ groups:
   base:
     build:
       num_threads: [32]
+      # degree大于15程序不会结束
       degree: [15]
     search:
       # finish_cnt: [1, 5, 10, 100, 400]
-      finish_cnt: [20, 100, 200, 400, 600, 800, 1000, 1200, 1600, 2000, 3000, 5000]
+      finish_cnt: [1, 5, 10, 20, 40, 80, 160, 200, 400, 800, 1600, 3200, 5000]
+      #等于4000会OOM
+      pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
+  base_glove200:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      # finish_cnt: [1, 5, 10, 100, 400]
+      finish_cnt: [5000, 6000, 7000, 8000, 9000, 10000]
       pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
   base_2:
     build:
@@ -17,7 +27,23 @@ groups:
       degree: [15]
     search:
       # finish_cnt: [1, 5, 10, 100, 400]
-      finish_cnt: [1, 5, 10, 20]
+      finish_cnt: [1, 5, 10, 20, 40, 80, 160, 200]
+      pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
+  mig_1c_4g_20gb:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      # finish_cnt: [1, 5, 10, 100, 400]
+      finish_cnt: [1, 5, 10, 20, 40, 80, 160, 200, 400, 800, 1600, 3200]
+      pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
+  mig_2c_3g_20gb:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      # finish_cnt: [1, 5, 10, 100, 400]
+      finish_cnt: [1, 5, 10, 20, 40, 80, 160, 200, 400, 800, 1600, 3200]
       pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
   mig_3g_20gb:
     build:
@@ -25,7 +51,7 @@ groups:
       degree: [15]
     search:
       # finish_cnt: [1, 5, 10, 100, 400]
-      finish_cnt: [20, 100, 200, 400, 600, 800, 1000, 1200, 1600, 2000, 3000, 5000]
+      finish_cnt: [1, 5, 10, 20, 40, 80, 160, 200, 400, 800, 1600, 3200]
       pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
   mig_4g_20gb:
     build:
@@ -33,15 +59,44 @@ groups:
       degree: [15]
     search:
       # finish_cnt: [1, 5, 10, 100, 400]
-      finish_cnt: [20, 100, 200, 400, 600, 800, 1000, 1200, 1600, 2000, 3000, 5000]
+      finish_cnt: [1, 5, 10, 20, 40, 80, 160, 200, 400, 800, 1600, 3200]
       pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
+  mig_1c_7g_40gb:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [10]
+      pq_size: [100]
+  mig_2c_7g_40gb:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [10]
+      pq_size: [100]
+  mig_3c_7g_40gb:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [10]
+      pq_size: [100]
+  mig_4c_7g_40gb:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [10]
+      pq_size: [100]
   graph_analysis_v2:
     build:
       num_threads: [32]
       degree: [15]
     search:
       # finish_cnt: [1, 5, 10, 100, 400]
-      finish_cnt: [200, 400, 600, 800, 1000, 1200, 1600, 2000, 3000, 5000]
+      finish_cnt: [1, 5, 10, 20, 40, 80, 160, 200, 400, 800, 1600, 3200, 5000]
+      #等于4000会OOM
       pq_size: [20, 50, 100, 200, 400, 800, 1600, 3200]
   ncu:
     build:
@@ -50,3 +105,31 @@ groups:
     search:
       finish_cnt: [2000]
       pq_size: [800]
+  ncu_recall95_v1_glove_100_inner_k10_bs10000:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [100]
+      pq_size: [3200]
+  ncu_recall95_v1_sift_128_euclidean_k10_bs10000:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [10]
+      pq_size: [100]
+  ncu_recall95_v1_mnist_784_euclidean_k10_bs10000:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [10]
+      pq_size: [20]
+  ncu_recall95_v1_gist_960_euclidean_k10_bs1000:
+    build:
+      num_threads: [32]
+      degree: [15]
+    search:
+      finish_cnt: [10]
+      pq_size: [1600]

@@ -29,6 +29,10 @@ private:
     pair<float, int>* first_subgraph;
     std::mt19937_64 rand_gen_ = std::mt19937_64(1234567);
 
+    // device data pointers
+    float* d_data_ = nullptr;
+    int* d_graph_ = nullptr;
+
     float distance(float* point_a, float* point_b) {
         if constexpr (metric_type == ganns::MetricType::L2) {
           return points_->L2Distance(point_a, point_b);
@@ -67,7 +71,22 @@ public:
         num_of_batches_ = (total_num_of_points + num_of_points_one_batch_ - 1) / num_of_points_one_batch_;
         num_of_points_one_batch_ = (total_num_of_points + num_of_batches_ - 1) / num_of_batches_;
     }
-    
+
+    void PrepareDeviceData() override {
+      if (d_data_ != nullptr || d_graph_ != nullptr) {
+        throw std::runtime_error("Device data has already been allocated.");
+      }
+      auto total_num_of_points = points_->GetNumPoints();
+      auto dim_of_point        = points_->GetDimofPoints();
+      cudaMalloc(&d_data_, sizeof(float) * total_num_of_points * dim_of_point);
+      cudaMemcpy(d_data_,
+                 points_->GetFirstPositionofPoint(0),
+                 sizeof(float) * total_num_of_points * dim_of_point,
+                 cudaMemcpyHostToDevice);
+
+      cudaMalloc(&d_graph_, sizeof(int) * (total_num_of_points << offset_shift_));
+      cudaMemcpy(d_graph_,graph_, sizeof(int) * (total_num_of_points << offset_shift_), cudaMemcpyHostToDevice);
+    }
     void AddPointinGraph(int point_id, float* point) {
         
         vector<pair<float, int>> neighbors;
@@ -154,7 +173,7 @@ public:
         // DisplaySearchParameters(num_of_topk_, num_of_explored_points);
 
         // std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    	NSWGraphOperations<metric_type, DIM, collect_metrics>::Search(points_->GetFirstPositionofPoint(0), queries, graph_, results, num_of_query_points, points_->GetNumPoints(), points_->GetDimofPoints(), offset_shift_, num_of_topk_, num_of_candidates, num_of_explored_points);
+        NSWGraphOperations<metric_type, DIM, collect_metrics>::Search(d_data_, queries, d_graph_, results, num_of_query_points, points_->GetNumPoints(), points_->GetDimofPoints(), offset_shift_, num_of_topk_, num_of_candidates, num_of_explored_points);
         // std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
         // cout << "Query speed: " << (double)num_of_query_points/((double)std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()/1000000) << " queries per second" << endl;
 

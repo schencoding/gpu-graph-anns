@@ -25,6 +25,7 @@ public:
   
   void FreeResults(int* results);
 
+  void PrepareDeviceData();
 private:
   GraphWrapper *graph_;
 };

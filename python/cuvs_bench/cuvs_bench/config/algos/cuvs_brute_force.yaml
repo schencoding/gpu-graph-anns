@@ -5,6 +5,16 @@ groups:
       dummy_build: [0]
     search:
       dummy_search: [0]
+  mig_1c_4g_20gb:
+    build:
+      dummy_build: [0]
+    search:
+      dummy_search: [0]
+  mig_2c_3g_20gb:
+    build:
+      dummy_build: [0]
+    search:
+      dummy_search: [0]
   mig_3g_20gb:
     build:
       dummy_build: [0]

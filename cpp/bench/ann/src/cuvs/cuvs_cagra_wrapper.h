@@ -141,9 +141,29 @@ class cuvs_cagra : public algo<T>, public algo_gpu {
     auto& metric_accumulator =
       cuvs::neighbors::cagra::detail::CagraMetricsAccumulator::get_instance();
     benchmark::UserCounters counters;
-    counters.insert({{"kernel_type", static_cast<int>(metric_accumulator.kernel_type)}});
-    counters.insert({{"metrics_distance_calculation_counter1",
-                      metric_accumulator.metrics.global_distance_calculation_counter1}});
+
+    counters["metrics_counter_clk_thread"] = metric_accumulator.metrics.counter_clk_thread;
+    counters["metrics_clk_init"]           = metric_accumulator.metrics.clk_init;
+    counters["metrics_clk_compute_1st_distance"] =
+      metric_accumulator.metrics.clk_compute_1st_distance;
+    counters["metrics_clk_topk"]             = metric_accumulator.metrics.clk_topk;
+    counters["metrics_counter_topk_bitonic_sort"] = metric_accumulator.metrics.counter_topk_bitonic_sort;
+    counters["metrics_counter_topk_radix_sort"] = metric_accumulator.metrics.counter_topk_radix_sort;
+    counters["metrics_clk_reset_hash"]       = metric_accumulator.metrics.clk_reset_hash;
+    counters["metrics_counter_reset_hash"]   = metric_accumulator.metrics.counter_reset_hash;
+    counters["metrics_clk_pickup_parents"]   = metric_accumulator.metrics.clk_pickup_parents;
+    counters["metrics_counter_pickup_parents"] = metric_accumulator.metrics.counter_pickup_parents;
+    counters["metrics_clk_restore_hash"]     = metric_accumulator.metrics.clk_restore_hash;
+    counters["metrics_counter_restore_hash"] = metric_accumulator.metrics.counter_restore_hash;
+    counters["metrics_clk_insert_hashmap"]   = metric_accumulator.metrics.clk_insert_hashmap;
+    counters["metrics_counter_insert_hashmap"] = metric_accumulator.metrics.counter_insert_hashmap;
+    counters["metrics_clk_compute_distance"] = metric_accumulator.metrics.clk_compute_distance;
+    counters["metrics_clk_final"] = metric_accumulator.metrics.clk_final;
+
+    counters["metrics_clk_counter"]          = metric_accumulator.metrics.clk_counter;
+
+    counters["metrics_distance_calculation_counter1"] =
+      metric_accumulator.metrics.global_distance_calculation_counter1;
     counters["metrics_distance_calculation_counter2"] =
       metric_accumulator.metrics.global_distance_calculation_counter2;
     counters["metrics_distance_calculation_counter3"] =
@@ -152,20 +172,11 @@ class cuvs_cagra : public algo<T>, public algo_gpu {
       metric_accumulator.metrics.global_distance_calculation_counter4;
     counters["metrics_distance_calculation_counter3_4_counter"] =
       metric_accumulator.metrics.global_distance_calculation_counter3_4_counter;
-    counters["metrics_num_queries"]             = metric_accumulator.num_queries;
+    
     counters["metrics_num_executed_iterations"] = metric_accumulator.num_executed_iterations;
+    counters["metrics_num_queries"]             = metric_accumulator.num_queries;
+    counters["kernel_type"] = static_cast<int>(metric_accumulator.kernel_type);
 
-    counters["metrics_clk_init"] = metric_accumulator.metrics.clk_init;
-    counters["metrics_clk_compute_1st_distance"] =
-      metric_accumulator.metrics.clk_compute_1st_distance;
-    counters["metrics_clk_pickup_parents"]   = metric_accumulator.metrics.clk_pickup_parents;
-    counters["metrics_clk_insert_hashmap"]   = metric_accumulator.metrics.clk_insert_hashmap;
-    counters["metrics_clk_reset_hash"]       = metric_accumulator.metrics.clk_reset_hash;
-    counters["metrics_clk_restore_hash"]     = metric_accumulator.metrics.clk_restore_hash;
-    counters["metrics_clk_compute_distance"] = metric_accumulator.metrics.clk_compute_distance;
-    counters["metrics_clk_topk"]             = metric_accumulator.metrics.clk_topk;
-    counters["metrics_clk_total"]            = metric_accumulator.metrics.clk_total;
-    counters["metrics_clk_counter"]          = metric_accumulator.metrics.clk_counter;
     return counters;
   }
 

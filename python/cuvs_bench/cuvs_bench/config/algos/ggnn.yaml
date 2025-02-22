@@ -8,14 +8,44 @@ groups:
       k_build: [24, 48, 64, 96]
       segment_size: [32, 64]
       num_layers: [4]
+      tau_build: [0, 0.25, 0.5, 0.99, 1.4, 1.8]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10, 100]
+    search:
+      tau_query: [0, 0.25, 0.5, 0.8, 0.95, 0.99, 1.2, 1.4, 1.6, 1.8]
+      block_dim: [32, 128]
+      max_iterations: [1, 10, 20, 40, 100, 200, 400, 1000, 2000]
+      cache_size: [512, 1024]
+      sorted_size: [32, 256]
+  mig_1c_4g_20gb:
+    build:
+      k_build: [24, 48, 64, 96]
+      segment_size: [32, 64]
+      num_layers: [4]
       tau_build: [0.5]
       refine_iterations: [2]
       # GGNN requires to know k during building
-      k_query: [10]
+      k_query: [10, 100]
     search:
-      tau_query: [0.25, 0.5, 0.8, 0.95, 0.99]
+      tau_query: [0, 0.25, 0.5, 0.8, 0.95, 0.99, 1.2, 1.4, 1.6, 1.8]
       block_dim: [32, 128]
-      max_iterations: [400, 1000, 2000]
+      max_iterations: [1, 10, 20, 40, 100, 200, 400, 1000, 2000]
+      cache_size: [512, 1024]
+      sorted_size: [32, 256]
+  mig_2c_3g_20gb:
+    build:
+      k_build: [24, 48, 64, 96]
+      segment_size: [32, 64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10, 100]
+    search:
+      tau_query: [0, 0.25, 0.5, 0.8, 0.95, 0.99, 1.2, 1.4, 1.6, 1.8]
+      block_dim: [32, 128]
+      max_iterations: [1, 10, 20, 40, 100, 200, 400, 1000, 2000]
       cache_size: [512, 1024]
       sorted_size: [32, 256]
   mig_3g_20gb:
@@ -26,11 +56,11 @@ groups:
       tau_build: [0.5]
       refine_iterations: [2]
       # GGNN requires to know k during building
-      k_query: [10]
+      k_query: [10, 100]
     search:
-      tau_query: [0.25, 0.5, 0.8, 0.95, 0.99]
+      tau_query: [0, 0.25, 0.5, 0.8, 0.95, 0.99, 1.2, 1.4, 1.6, 1.8]
       block_dim: [32, 128]
-      max_iterations: [400, 1000, 2000]
+      max_iterations: [1, 10, 20, 40, 100, 200, 400, 1000, 2000]
       cache_size: [512, 1024]
       sorted_size: [32, 256]
   mig_4g_20gb:
@@ -41,26 +71,86 @@ groups:
       tau_build: [0.5]
       refine_iterations: [2]
       # GGNN requires to know k during building
-      k_query: [10]
+      k_query: [10, 100]
     search:
-      tau_query: [0.25, 0.5, 0.8, 0.95, 0.99]
+      tau_query: [0, 0.25, 0.5, 0.8, 0.95, 0.99, 1.2, 1.4, 1.6, 1.8]
       block_dim: [32, 128]
-      max_iterations: [400, 1000, 2000]
+      max_iterations: [1, 10, 20, 40, 100, 200, 400, 1000, 2000]
       cache_size: [512, 1024]
       sorted_size: [32, 256]
-  graph_analysis_v2:
+  mig_1c_7g_40gb:
     build:
-      k_build: [24, 48, 64, 96]
-      segment_size: [32, 64]
+      k_build: [96]
+      segment_size: [64]
       num_layers: [4]
       tau_build: [0.5]
       refine_iterations: [2]
       # GGNN requires to know k during building
       k_query: [10]
     search:
-      tau_query: [0.25, 0.5, 0.8, 0.95, 0.99]
+      tau_query: [0.25]
+      block_dim: [128]
+      max_iterations: [1000]
+      cache_size: [512]
+      sorted_size: [256]
+  mig_2c_7g_40gb:
+    build:
+      k_build: [96]
+      segment_size: [64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25]
+      block_dim: [128]
+      max_iterations: [1000]
+      cache_size: [512]
+      sorted_size: [256]
+  mig_3c_7g_40gb:
+    build:
+      k_build: [96]
+      segment_size: [64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25]
+      block_dim: [128]
+      max_iterations: [1000]
+      cache_size: [512]
+      sorted_size: [256]
+  mig_4c_7g_40gb:
+    build:
+      k_build: [96]
+      segment_size: [64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25]
+      block_dim: [128]
+      max_iterations: [1000]
+      cache_size: [512]
+      sorted_size: [256]
+  graph_analysis_v2:
+    build:
+      k_build: [24, 48, 64, 96]
+      segment_size: [32, 64]
+      num_layers: [4]
+      tau_build: [0, 0.25, 0.5, 0.99, 1.4, 1.8]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10, 100]
+    search:
+      tau_query: [0, 0.25, 0.5, 0.8, 0.95, 0.99, 1.2, 1.4, 1.6, 1.8]
       block_dim: [32, 128]
-      max_iterations: [400, 1000, 2000]
+      max_iterations: [1, 10, 20, 40, 100, 200, 400, 1000, 2000]
       cache_size: [512, 1024]
       sorted_size: [32, 256]
   ncu:
@@ -78,3 +168,63 @@ groups:
       max_iterations: [2000]
       cache_size: [1024]
       sorted_size: [32]
+  ncu_recall95_v1_glove_100_inner_k10_bs10000:
+    build:
+      k_build: [48]
+      segment_size: [32]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.5]
+      block_dim: [128]
+      max_iterations: [2000]
+      cache_size: [1024]
+      sorted_size: [32]
+  ncu_recall95_v1_sift_128_euclidean_k10_bs10000:
+    build:
+      k_build: [96]
+      segment_size: [64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25]
+      block_dim: [128]
+      max_iterations: [1000]
+      cache_size: [512]
+      sorted_size: [256]
+  ncu_recall95_v1_mnist_784_euclidean_k10_bs10000:
+    build:
+      k_build: [24]
+      segment_size: [32]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25]
+      block_dim: [128]
+      max_iterations: [1000]
+      cache_size: [512]
+      sorted_size: [256]
+  ncu_recall95_v1_gist_960_euclidean_k10_bs1000:
+    build:
+      k_build: [96]
+      segment_size: [64]
+      num_layers: [4]
+      tau_build: [0.5]
+      refine_iterations: [2]
+      # GGNN requires to know k during building
+      k_query: [10]
+    search:
+      tau_query: [0.25]
+      block_dim: [128]
+      max_iterations: [1000]
+      cache_size: [512]
+      sorted_size: [256]

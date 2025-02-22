@@ -34,6 +34,9 @@ private:
     Data* data;
     std::mt19937_64 rand_gen = std::mt19937_64(1234567);//std::random_device{}());
 
+    idx_t* d_graph;
+    value_t* d_data;
+
     void rank_and_switch_ordered(idx_t v_id,idx_t u_id){
         //We assume the neighbors of v_ids in edges[offset] are sorted 
         //by the distance to v_id ascendingly when it is full
@@ -143,12 +146,51 @@ public:
     long long total_explore_cnt = 0;
     int total_explore_times = 0;
 
-    KernelFixedDegreeGraph(Data* data, int degree) : data(data), degree(degree) {
+    KernelFixedDegreeGraph(Data* data, int degree) : data(data), degree(degree), d_data(nullptr), d_graph(nullptr) {
         flexible_degree = degree * 2 + 1;
+        if (degree == 15) {
+          vertex_offset_shift = 5;
+        } else if (degree == 31) {
+          vertex_offset_shift = 5;
+        } else if (degree == 255) {
+          vertex_offset_shift = 8;
+        } else {
+          throw std::runtime_error("degree not supported");
+        }
         auto num_vertices = data->max_vertices();
         edges = std::vector<idx_t>(num_vertices << vertex_offset_shift);
         edge_dist = std::vector<dist_t>(num_vertices << vertex_offset_shift);
     }
+
+    ~KernelFixedDegreeGraph() {
+        if (d_graph != nullptr) {
+            cudaFree(d_graph);
+            d_graph = nullptr;
+        }
+        if (d_data != nullptr) {
+            cudaFree(d_data);
+            d_data = nullptr;
+        }
+    }
+
+    void set_device_data_and_graph_if_nullptr() {
+      int num = data->max_vertices();
+      int dim = data->get_dim();
+      if (d_data == nullptr && d_graph == nullptr) {
+        if (data == nullptr) { throw std::runtime_error("data is nullptr"); }
+        cudaMalloc(&d_data, sizeof(value_t) * num * dim);
+        cudaMemcpy(d_data, data->get(0), sizeof(value_t) * num * dim, cudaMemcpyHostToDevice);
+        cudaMalloc(&d_graph, sizeof(idx_t) * (num << vertex_offset_shift));
+        cudaMemcpy(d_graph,
+                   edges.data(),
+                   sizeof(idx_t) * (num << vertex_offset_shift),
+                   cudaMemcpyHostToDevice);
+      } else {
+        throw std::runtime_error("d_data or d_graph is not nullptr");
+      }
+      std::cout << "set_device_data_and_graph_if_nullptr: num=" << num << "dim=" << dim << std::endl;
+    }
+
     
     void add_vertex(idx_t vertex_id,std::vector<std::pair<int,value_t>>& point){
         std::vector<idx_t> neighbor;
@@ -272,7 +314,7 @@ public:
   
     template<int PQ_SIZE>
 	void search_top_k_batch(const std::vector<std::vector<std::pair<int,value_t>>>& queries,int k,std::vector<std::vector<idx_t>>& results, size_t finish_cnt){
-    	WarpAStarAccelerator::template astar_multi_start_search_batch<metric_type, DIM, PQ_SIZE, visited_table_type>(queries,k,results,data->get(0),edges.data(),vertex_offset_shift,data->max_vertices(),data->get_dim(), finish_cnt);
+    	WarpAStarAccelerator::template astar_multi_start_search_batch<metric_type, DIM, PQ_SIZE, visited_table_type>(queries,k,results,d_data,d_graph,vertex_offset_shift,data->max_vertices(),data->get_dim(), finish_cnt);
         //fprintf(stderr,"finished one batch\n");
     }
 

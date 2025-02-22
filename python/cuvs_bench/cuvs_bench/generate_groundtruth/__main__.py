@@ -115,7 +115,7 @@ def choose_random_queries(dataset, n_queries):
     return dataset[query_idx, :]
 
 
-def cpu_search(dataset, queries, k, metric="squeclidean"):
+def cpu_search(dataset, queries, k, metric="sqeuclidean"):
     """
     Find the k nearest neighbors for each query point in the dataset using the
     specified metric.
@@ -144,7 +144,7 @@ def cpu_search(dataset, queries, k, metric="squeclidean"):
         k nearest neighbors in the dataset for each query.
 
     """
-    if metric == "squeclidean":
+    if metric == "sqeuclidean":
         diff = queries[:, xp.newaxis, :] - dataset[xp.newaxis, :, :]
         dist_sq = xp.sum(diff**2, axis=2)  # Shape: (n_queries, n_samples)
 
@@ -201,7 +201,7 @@ def calc_truth(dataset, queries, k, metric="sqeuclidean"):
             D, Ind = search(index, queries, k, resources=resources)
             resources.sync()
         else:
-            D, Ind = cpu_search(X, queries, metric=metric)
+            D, Ind = cpu_search(X, queries, k, metric=metric)
 
         D, Ind = xp.asarray(D), xp.asarray(Ind)
         Ind += i  # shift neighbor index by offset i

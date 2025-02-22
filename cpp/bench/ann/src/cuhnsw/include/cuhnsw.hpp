@@ -96,12 +96,23 @@ class CuHNSW {
                    float* distances,
                    int* found_cnt);
 
+  void SetDevDataIfNullptr() {
+    logger_->info("SetDevDataIfNullptr max_m: {}, max_m0: {}\n", max_m_, max_m0_);
+    for (int i = 1; i <= max_level_; ++i) {
+      level_graphs_[i].set_dev_data_if_nullptr(max_m_);
+    }
+    level_graphs_[0].set_dev_data_if_nullptr(max_m0_);
+  }
  private:
   void GetDeviceInfo();
-  void GetEntryPoints(const std::vector<int>& nodes,
+  void GetEntryPointsBuild(const std::vector<int>& nodes,
                       std::vector<int>& entries,
-                      int level,
-                      bool search);
+                      int level
+                      );
+  void GetEntryPointsSearch(const std::vector<int>& nodes,
+                      std::vector<int>& entries,
+                      int level
+                      );
   void SearchAtLayer(const std::vector<int>& queries,
                      std::vector<std::deque<std::pair<float, int>>>& entries,
                      int level,

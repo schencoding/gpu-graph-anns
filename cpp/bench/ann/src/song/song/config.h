@@ -146,3 +146,10 @@ struct BloomFilterConfig<3200> {
   static constexpr int BLOOM_FILTER_BIT_SHIFT = 13;
   static constexpr int BLOOM_FILTER_NUM_HASH = 9;
 };
+
+template <>
+struct BloomFilterConfig<6400> {
+  static constexpr int BLOOM_FILTER_BIT64 = 16384;
+  static constexpr int BLOOM_FILTER_BIT_SHIFT = 14;
+  static constexpr int BLOOM_FILTER_NUM_HASH = 9;
+};

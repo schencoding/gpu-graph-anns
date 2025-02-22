@@ -7,6 +7,20 @@ groups:
       niter: [20, 25]
     search:
       nprobe: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
+  mig_1c_4g_20gb:
+    build:
+      nlist: [1024, 2048, 4096, 8192, 16384, 32000, 64000]
+      ratio: [1, 2, 4]
+      niter: [20, 25]
+    search:
+      nprobe: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
+  mig_2c_3g_20gb:
+    build:
+      nlist: [1024, 2048, 4096, 8192, 16384, 32000, 64000]
+      ratio: [1, 2, 4]
+      niter: [20, 25]
+    search:
+      nprobe: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
   mig_3g_20gb:
     build:
       nlist: [1024, 2048, 4096, 8192, 16384, 32000, 64000]
@@ -35,3 +49,17 @@ groups:
       niter: [20]
     search:
       nprobe: [1000]
+  ncu_recall95_v1_sift_128_euclidean_k10_bs10000:
+    build:
+      nlist: [16384]
+      ratio: [1]
+      niter: [20]
+    search:
+      nprobe: [100]
+  ncu_recall95_v1_gist_960_euclidean_k10_bs1000:
+    build:
+      nlist: [16384]
+      ratio: [1]
+      niter: [20]
+    search:
+      nprobe: [500]

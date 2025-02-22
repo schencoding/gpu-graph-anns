@@ -43,6 +43,11 @@ void song::make_impl(int dim, const build_param& param)
         std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 128, visited_table_type>>(
           metric, dim, param);
       break;
+    case 200:
+      impl_ =
+        std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 200, visited_table_type>>(
+          metric, dim, param);
+      break;
     case 256:
       impl_ =
         std::make_shared<song_impl<ConvertMetricTrait<metric>::metric, 256, visited_table_type>>(

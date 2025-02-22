@@ -19,6 +19,40 @@ groups:
       ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
       block_dim_search: [32, 64, 96, 128]
       hyper_threads_search: [100]
+  mig_1c_4g_20gb:
+    build:
+      max_m: [24, 32]
+      max_m0: [32, 64]
+      ef_construction: [256, 512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
+      block_dim_search: [32, 64, 96, 128]
+      hyper_threads_search: [100]
+  mig_2c_3g_20gb:
+    build:
+      max_m: [24, 32]
+      max_m0: [32, 64]
+      ef_construction: [256, 512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
+      block_dim_search: [32, 64, 96, 128]
+      hyper_threads_search: [100]
   mig_3g_20gb:
     build:
       max_m: [24, 32]
@@ -53,6 +87,74 @@ groups:
       ef_search: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800, 1200, 1600]
       block_dim_search: [32, 64, 96, 128]
       hyper_threads_search: [100]
+  mig_1c_7g_40gb:
+    build:
+      max_m: [24]
+      max_m0: [64]
+      ef_construction: [256]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [60]
+      block_dim_search: [96]
+      hyper_threads_search: [100]
+  mig_2c_7g_40gb:
+    build:
+      max_m: [24]
+      max_m0: [64]
+      ef_construction: [256]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [60]
+      block_dim_search: [96]
+      hyper_threads_search: [100]
+  mig_3c_7g_40gb:
+    build:
+      max_m: [24]
+      max_m0: [64]
+      ef_construction: [256]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [60]
+      block_dim_search: [96]
+      hyper_threads_search: [100]
+  mig_4c_7g_40gb:
+    build:
+      max_m: [24]
+      max_m0: [64]
+      ef_construction: [256]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [60]
+      block_dim_search: [96]
+      hyper_threads_search: [100]
   graph_analysis_v2:
     build:
       max_m: [24, 32]
@@ -85,3 +187,132 @@ groups:
       log_level: [2]
     search:
       ef_search: [400]
+  ncu_recall95_v1_glove_100_inner_k10_bs10000:
+    build:
+      max_m: [32]
+      max_m0: [64]
+      ef_construction: [256]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+      block_dim_search: [128]
+    search:
+      ef_search: [400]
+  ncu_recall95_v1_sift_128_euclidean_k10_bs10000:
+    build:
+      max_m: [24]
+      max_m0: [64]
+      ef_construction: [256]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [60]
+      block_dim_search: [96]
+      hyper_threads_search: [100]
+  ncu_recall95_v1_mnist_784_euclidean_k10_bs10000:
+    build:
+      max_m: [24]
+      max_m0: [64]
+      ef_construction: [512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [40]
+      block_dim_search: [128]
+      hyper_threads_search: [100]
+  ncu_recall95_v1_gist_960_euclidean_k10_bs1000:
+    build:
+      max_m: [24]
+      max_m0: [32]
+      ef_construction: [512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [400]
+      block_dim_search: [128]
+      hyper_threads_search: [100]
+  recall95_v1_glove_100_inner_k10_bs10000:
+    build:
+      max_m: [32]
+      max_m0: [64]
+      ef_construction: [256]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [400]
+      block_dim_search: [128]
+      hyper_threads_search: [100]
+  recall95_v1_sift_128_euclidean_k10_bs10000:
+    build:
+      max_m: [24]
+      max_m0: [32]
+      ef_construction: [512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [60]
+  recall95_v1_mnist_784_euclidean_k10_bs10000:
+    build:
+      max_m: [24]
+      max_m0: [64]
+      ef_construction: [512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [40]
+  recall95_v1_gist_960_euclidean_k10_bs1000:
+    build:
+      max_m: [24]
+      max_m0: [32]
+      ef_construction: [512]
+      heuristic_coef: [0.0]
+      save_remains: [False]
+      block_dim: [32]
+      hyper_threads: [100]
+      visited_table_size: [16384]
+      visited_list_size: [8192]
+      reverse_cand: [False]
+      log_level: [2]
+    search:
+      ef_search: [40]

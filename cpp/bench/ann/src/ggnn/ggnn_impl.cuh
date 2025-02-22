@@ -2,9 +2,9 @@
 
 #include "../common/ann_types.hpp"
 #include "../common/util.hpp"
-#include "ggnn/utils/cuda_knn_constants.cuh"
-#include "ggnn_gpu_instance-ext.cuh"
+#include "ggnn/cuda_knn_ggnn_gpu_instance.cuh"
 #include "ggnn_wrapper.cuh"
+
 namespace cuvs::bench {
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 class ggnn_impl : public algo<T>, public algo_gpu {
@@ -94,21 +94,4 @@ class ggnn_impl : public algo<T>, public algo_gpu {
   }
 };
 
-#define INSTANTIATE(DIM, KQUERY)                                          \
-  extern template class ggnn_impl<float, Euclidean, DIM, 24, KQUERY, 32>; \
-  extern template class ggnn_impl<float, Euclidean, DIM, 24, KQUERY, 64>; \
-  extern template class ggnn_impl<float, Euclidean, DIM, 48, KQUERY, 32>; \
-  extern template class ggnn_impl<float, Euclidean, DIM, 48, KQUERY, 64>; \
-  extern template class ggnn_impl<float, Euclidean, DIM, 64, KQUERY, 64>; \
-  extern template class ggnn_impl<float, Euclidean, DIM, 96, KQUERY, 64>;
-
-INSTANTIATE(100, 10);
-INSTANTIATE(128, 10);
-INSTANTIATE(784, 10);
-INSTANTIATE(960, 10);
-INSTANTIATE(100, 100);
-INSTANTIATE(128, 100);
-INSTANTIATE(784, 100);
-INSTANTIATE(960, 100);
-#undef INSTANTIATE
 }  // namespace cuvs::bench
