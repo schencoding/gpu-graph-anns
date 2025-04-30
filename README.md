@@ -1,3 +1,17 @@
+<h1 align="center">
+An Experimental Study of GPU-Based Graph ANN Search Algorithms
+</h1>
+
+Code for our paper "An Experimental Study of GPU-Based Graph ANN Search Algorithms" at [HardBD & Active'25](https://hardbd-active.github.io/2025/papers/HardBDActive25-JiangC.pdf)
+
+This repository is based on [rapidsai/cuvs](https://github.com/rapidsai/cuvs/commit/bd603a97ea7c095dd109c802387b33dc1d591b54).
+
+See [WIKI](https://github.com/schencoding/gpu-graph-anns/wiki) for more details.
+
+*(The following is the original README.md of rapidsai/cuvs)*
+
+---
+
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;cuVS: Vector Search and Clustering on the GPU</div>
 
 > [!note]

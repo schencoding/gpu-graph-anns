@@ -6,7 +6,6 @@
 #include <cuda_runtime_api.h>
 #include <fstream>
 #include <numeric>
-#include <raft/core/logger-macros.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 
 #include "cuvs/neighbors/cuhnsw_v2.hpp"
