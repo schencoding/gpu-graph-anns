@@ -6,7 +6,35 @@ Code for our paper "An Experimental Study of GPU-Based Graph ANN Search Algorith
 
 This repository is based on [rapidsai/cuvs](https://github.com/rapidsai/cuvs/commit/bd603a97ea7c095dd109c802387b33dc1d591b54).
 
-See [WIKI](https://github.com/schencoding/gpu-graph-anns/wiki) for more details.
+
+If you have any questions, feel free to
+open an issue.
+
+## Algorithms to Compare
+
+Benchmarking code is in `cpp/bench/ann` directory.
+We compare the following algorithms, click the links to see the detailed documentation of each algorithm.
+
+- GPU-based graph ANNS
+    - [SONG](./cpp/bench/ann/src/song/README.md)
+    - [CUHNSW](./cpp/bench/ann/src/cuhnsw/README.md)
+    - [GANNS](./cpp/bench/ann/src/ganns/README.md)
+    - [GGNN](./cpp/bench/ann/src/ggnn/README.md)
+    - [CAGRA](./cpp/bench/ann/src/cuvs/README.md)
+- GPU-based baselines
+    - [GPU-based IVF Flat](./cpp/bench/ann/src/cuvs/README.md)
+    - [GPU-based IVF PQ](./cpp/bench/ann/src/cuvs/README.md)
+    - [GPU-based Brute-force](./cpp/bench/ann/src/cuvs/README.md)
+- CPU baseline
+    - [hnswlib](./cpp/bench/ann/src/hnswlib/README.md)
+
+We ported SONG, CUHNSW and GANNS from thier original repositories to this repository.
+
+## Build and Run Benchmarks
+
+See [hardbd2025/README.md](./hardbd2025/README.md)
+
+---
 
 *(The following is the original README.md of rapidsai/cuvs)*
 
